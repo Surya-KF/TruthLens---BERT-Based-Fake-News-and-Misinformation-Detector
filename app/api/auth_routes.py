@@ -1,0 +1,180 @@
+from fastapi import APIRouter, HTTPException, status, Depends
+from datetime import datetime, timedelta
+from bson import ObjectId
+from app.database import get_users_collection, get_predictions_collection
+from app.schemas.auth import UserCreate, UserLogin, UserResponse, Token
+from app.auth import (
+    get_password_hash, 
+    verify_password, 
+    create_access_token, 
+    get_current_user,
+    ACCESS_TOKEN_EXPIRE_MINUTES
+)
+
+router = APIRouter(prefix="/auth", tags=["authentication"])
+
+
+@router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
+async def register(user_data: UserCreate):
+    """
+    Register a new user account.
+    
+    - **email**: Valid email address (must be unique)
+    - **username**: Username (3-50 characters, must be unique)
+    - **password**: Password (min 6 characters)
+    - **full_name**: Optional full name
+    """
+    users_collection = get_users_collection()
+    
+    # Check if email already exists
+    existing_user = await users_collection.find_one({"email": user_data.email})
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
+    
+    # Check if username already exists
+    existing_username = await users_collection.find_one({"username": user_data.username})
+    if existing_username:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already taken"
+        )
+    
+    # Create new user
+    new_user = {
+        "email": user_data.email,
+        "username": user_data.username,
+        "full_name": user_data.full_name,
+        "hashed_password": get_password_hash(user_data.password),
+        "is_active": True,
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    }
+    
+    result = await users_collection.insert_one(new_user)
+    user_id = str(result.inserted_id)
+    
+    # Create access token
+    access_token = create_access_token(
+        data={"sub": user_id, "email": user_data.email},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    
+    return Token(
+        access_token=access_token,
+        token_type="bearer",
+        user=UserResponse(
+            id=user_id,
+            email=new_user["email"],
+            username=new_user["username"],
+            full_name=new_user["full_name"],
+            created_at=new_user["created_at"],
+            is_active=new_user["is_active"]
+        )
+    )
+
+
+@router.post("/login", response_model=Token)
+async def login(credentials: UserLogin):
+    """
+    Login with email and password to get access token.
+    
+    - **email**: Registered email address
+    - **password**: Account password
+    """
+    users_collection = get_users_collection()
+    
+    # Find user by email
+    user = await users_collection.find_one({"email": credentials.email})
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Verify password
+    if not verify_password(credentials.password, user["hashed_password"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Check if user is active
+    if not user.get("is_active", True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is disabled"
+        )
+    
+    # Create access token
+    user_id = str(user["_id"])
+    access_token = create_access_token(
+        data={"sub": user_id, "email": user["email"]},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    
+    return Token(
+        access_token=access_token,
+        token_type="bearer",
+        user=UserResponse(
+            id=user_id,
+            email=user["email"],
+            username=user["username"],
+            full_name=user.get("full_name"),
+            created_at=user["created_at"],
+            is_active=user.get("is_active", True)
+        )
+    )
+
+
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_info(current_user: dict = Depends(get_current_user)):
+    """
+    Get current authenticated user's information.
+    Requires valid JWT token in Authorization header.
+    """
+    return UserResponse(
+        id=str(current_user["_id"]),
+        email=current_user["email"],
+        username=current_user["username"],
+        full_name=current_user.get("full_name"),
+        created_at=current_user["created_at"],
+        is_active=current_user.get("is_active", True)
+    )
+
+
+@router.get("/history")
+async def get_prediction_history(
+    limit: int = 20,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get user's prediction history.
+    Returns the last N predictions made by the user.
+    """
+    predictions_collection = get_predictions_collection()
+    user_id = str(current_user["_id"])
+    
+    cursor = predictions_collection.find(
+        {"user_id": user_id}
+    ).sort("created_at", -1).limit(limit)
+    
+    predictions = []
+    async for prediction in cursor:
+        prediction["_id"] = str(prediction["_id"])
+        predictions.append(prediction)
+    
+    return {"predictions": predictions, "count": len(predictions)}
+
+
+@router.post("/logout")
+async def logout(current_user: dict = Depends(get_current_user)):
+    """
+    Logout current user (client should discard the token).
+    """
+    return {"message": "Successfully logged out"}

@@ -16,7 +16,7 @@ async def predict(
 ):
     """
     Predict whether a news article is fake or real.
-    Uses ML model with AI cross-check and news source validation.
+    Uses Gemini AI as primary predictor, with BERT as fallback.
     Requires authentication.
     
     Args:
@@ -26,18 +26,24 @@ async def predict(
         PredictionResponse with prediction label, confidence, and probabilities
     """
     try:
-        # Get ML prediction
-        model, tokenizer, checkpoint = get_model()
-        bert_result = predict_fake_news(request.text, model, tokenizer, checkpoint)
+        # Try AI prediction first (primary)
+        ai_result = ai_checker.predict(request.text)
         
-        # Cross-check with AI if enabled
-        ai_result = ai_checker.check_claim(request.text)
+        if ai_result:
+            # AI prediction successful - use it
+            final_result = ai_result
+            final_result["text"] = request.text
+        else:
+            # Fallback to BERT model
+            model, tokenizer, checkpoint = get_model()
+            bert_result = predict_fake_news(request.text, model, tokenizer, checkpoint)
+            final_result = {
+                **bert_result,
+                "is_fake": bert_result["prediction"] == "fake"
+            }
         
         # Validate against real news sources
         news_validation = news_validator.validate_claim(request.text)
-        
-        # Reconcile all predictions
-        final_result = ai_checker.reconcile_predictions(bert_result, ai_result)
         
         # Add news validation insights
         final_result = news_validator.enhance_prediction(final_result, ai_result, news_validation)
@@ -65,7 +71,7 @@ async def batch_predict(
 ):
     """
     Predict multiple news articles at once.
-    Uses ML model with AI cross-check and news source validation.
+    Uses Gemini AI as primary predictor, with BERT as fallback.
     Requires authentication.
     
     Args:
@@ -80,17 +86,22 @@ async def batch_predict(
         predictions_collection = get_predictions_collection()
         
         for text in texts:
-            # Get ML prediction
-            bert_result = predict_fake_news(text, model, tokenizer, checkpoint)
+            # Try AI prediction first (primary)
+            ai_result = ai_checker.predict(text)
             
-            # Cross-check with AI if enabled
-            ai_result = ai_checker.check_claim(text)
+            if ai_result:
+                final_result = ai_result
+                final_result["text"] = text
+            else:
+                # Fallback to BERT
+                bert_result = predict_fake_news(text, model, tokenizer, checkpoint)
+                final_result = {
+                    **bert_result,
+                    "is_fake": bert_result["prediction"] == "fake"
+                }
             
             # Validate against news sources
             news_validation = news_validator.validate_claim(text)
-            
-            # Reconcile predictions
-            final_result = ai_checker.reconcile_predictions(bert_result, ai_result)
             final_result = news_validator.enhance_prediction(final_result, ai_result, news_validation)
             results.append(final_result)
             

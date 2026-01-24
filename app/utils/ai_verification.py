@@ -9,77 +9,88 @@ load_dotenv()
 class AIFactChecker:
     def __init__(self):
         api_key = os.getenv('AI_API_KEY')
-        self.enabled = os.getenv('ENABLE_AI_CHECK', 'false').lower() == 'true'
+        self.enabled = os.getenv('ENABLE_AI_CHECK', 'true').lower() == 'true'
         
-        if self.enabled and api_key and api_key != 'your_api_key_here':
-            genai.configure(api_key=api_key)
-            self.model = genai.GenerativeModel('gemini-2.5-flash')
+        if api_key and api_key != 'your_api_key_here' and len(api_key) > 10:
+            try:
+                genai.configure(api_key=api_key)
+                self.model = genai.GenerativeModel('gemini-2.5-flash')
+                self.enabled = True
+                print("✓ Gemini AI initialized successfully")
+            except Exception as e:
+                print(f"⚠ Failed to initialize Gemini AI: {e}")
+                self.model = None
+                self.enabled = False
         else:
             self.model = None
             self.enabled = False
+            print("⚠ AI API key not configured, using BERT model only")
     
-    def check_claim(self, text: str) -> Optional[Dict]:
+    def predict(self, text: str) -> Optional[Dict]:
         """
-        Use AI to fact-check a claim.
+        Use AI as the PRIMARY predictor for fake news detection.
         
         Args:
             text: The claim/statement to fact-check
             
         Returns:
-            Dict with AI's analysis or None if disabled/error
+            Dict with AI's prediction or None if disabled/error
         """
         if not self.enabled or not self.model:
             return None
         
         try:
-            prompt = f"""You are a fact-checking AI assistant. Analyze the following statement and determine if it's likely to be fake news or real news.
+            prompt = f"""You are a professional fact-checker. Analyze the following news statement and determine if it's REAL or FAKE news.
 
 Statement: "{text}"
 
-Provide your analysis in the following format:
-1. Classification: [FAKE/REAL/UNCERTAIN]
-2. Confidence: [percentage, e.g., 85%]
-3. Reasoning: [Brief explanation of your classification]
-4. Key Points: [List 2-3 key points that influenced your decision]
+Respond in this EXACT format:
+CLASSIFICATION: [REAL or FAKE]
+CONFIDENCE: [number between 0 and 100]%
+REASONING: [One sentence explanation]
 
-Be objective and consider:
-- Factual accuracy
-- Verifiable sources
-- Logical consistency
-- Common misinformation patterns
-- Context and plausibility
+Consider:
+- Is this factually accurate based on your knowledge?
+- Does it follow common misinformation patterns?
+- Is it logically consistent?
+- Would reputable news sources report this?
 
-Your response:"""
+Be balanced - don't assume everything is fake. Real news exists too."""
 
             response = self.model.generate_content(prompt)
-            
-            # Parse the response
             text_response = response.text
             
-            # Extract classification
-            classification = "uncertain"
-            if "FAKE" in text_response.upper().split('\n')[0]:
-                classification = "fake"
-            elif "REAL" in text_response.upper().split('\n')[0]:
-                classification = "real"
-            elif "UNCERTAIN" in text_response.upper().split('\n')[0]:
-                classification = "uncertain"
+            # Parse classification
+            classification = "real"  # Default to real to avoid bias
+            lines = text_response.upper().split('\n')
+            for line in lines:
+                if 'CLASSIFICATION' in line:
+                    if 'FAKE' in line:
+                        classification = "fake"
+                    elif 'REAL' in line:
+                        classification = "real"
+                    break
             
-            # Try to extract confidence (simple parsing)
-            confidence = 0.5
+            # Parse confidence
+            confidence = 0.75  # Default confidence
+            import re
             for line in text_response.split('\n'):
-                if 'confidence' in line.lower():
-                    # Try to find percentage
-                    import re
-                    match = re.search(r'(\d+)%', line)
+                if 'CONFIDENCE' in line.upper():
+                    match = re.search(r'(\d+)', line)
                     if match:
                         confidence = float(match.group(1)) / 100.0
+                        confidence = min(max(confidence, 0.5), 0.99)  # Clamp between 50-99%
                     break
             
             return {
-                "ai_classification": classification,
-                "ai_confidence": confidence,
-                "ai_analysis": text_response,
+                "prediction": classification,
+                "confidence": confidence,
+                "probabilities": {
+                    "fake": confidence if classification == "fake" else 1 - confidence,
+                    "real": confidence if classification == "real" else 1 - confidence
+                },
+                "is_fake": classification == "fake",
+                "ai_reasoning": text_response,
                 "ai_enabled": True
             }
         
@@ -87,58 +98,37 @@ Your response:"""
             print(f"AI API error: {e}")
             return None
     
+    def check_claim(self, text: str) -> Optional[Dict]:
+        """Alias for predict() for backwards compatibility"""
+        return self.predict(text)
+    
     def reconcile_predictions(self, bert_prediction: Dict, ai_result: Optional[Dict]) -> Dict:
         """
-        Combine BERT and AI predictions to create a final decision.
-        AI silently corrects BERT when they disagree.
+        Use AI as PRIMARY predictor. Fall back to BERT only if AI fails.
         
         Args:
-            bert_prediction: The prediction from BERT model
-            ai_result: The result from AI (can be None)
+            bert_prediction: The prediction from BERT model (fallback)
+            ai_result: The result from AI (primary)
             
         Returns:
-            Enhanced prediction (looks like it came from BERT only)
+            Final prediction - AI if available, else BERT
         """
-        if not ai_result or not self.enabled:
+        # If AI prediction is available, use it as primary
+        if ai_result and self.enabled:
             return {
-                **bert_prediction,
-                "is_fake": bert_prediction["prediction"] == "fake"
+                "text": bert_prediction.get("text", ""),
+                "prediction": ai_result["prediction"],
+                "confidence": ai_result["confidence"],
+                "probabilities": ai_result["probabilities"],
+                "is_fake": ai_result["is_fake"],
+                "classification_type": "binary"
             }
         
-        # Check if predictions agree
-        bert_pred = bert_prediction["prediction"]
-        ai_pred = ai_result["ai_classification"]
-        
-        agree = bert_pred == ai_pred
-        
-        # Calculate final prediction - AI overrides BERT if it disagrees
-        if agree:
-            # Both agree - use higher confidence
-            final_pred = bert_pred
-            final_confidence = max(bert_prediction["confidence"], ai_result["ai_confidence"])
-        else:
-            # Disagree - Always use AI (it's more accurate)
-            final_pred = ai_pred
-            final_confidence = ai_result["ai_confidence"]
-        
-        # Return result that looks like it came from the model directly
-        # Hide all AI traces
-        result = {
+        # Fallback to BERT if AI not available
+        return {
             **bert_prediction,
-            "prediction": final_pred,  # Override with final prediction
-            "confidence": final_confidence,  # Override with final confidence
-            "is_fake": final_pred == "fake"
+            "is_fake": bert_prediction["prediction"] == "fake"
         }
-        
-        # Update probabilities to match final prediction
-        if final_pred != bert_pred:
-            # Flip the probabilities to match AI's assessment
-            result["probabilities"] = {
-                "fake": final_confidence if final_pred == "fake" else 1 - final_confidence,
-                "real": final_confidence if final_pred == "real" else 1 - final_confidence
-            }
-        
-        return result
 
 # Global instance
 ai_checker = AIFactChecker()

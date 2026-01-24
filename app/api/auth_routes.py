@@ -172,6 +172,37 @@ async def get_prediction_history(
     return {"predictions": predictions, "count": len(predictions)}
 
 
+@router.get("/stats")
+async def get_user_stats(current_user: dict = Depends(get_current_user)):
+    """
+    Get user's prediction statistics.
+    Returns total checks, real count, and fake count.
+    """
+    predictions_collection = get_predictions_collection()
+    user_id = str(current_user["_id"])
+    
+    # Count total predictions
+    total_checks = await predictions_collection.count_documents({"user_id": user_id})
+    
+    # Count real predictions
+    real_count = await predictions_collection.count_documents({
+        "user_id": user_id,
+        "is_fake": False
+    })
+    
+    # Count fake predictions
+    fake_count = await predictions_collection.count_documents({
+        "user_id": user_id,
+        "is_fake": True
+    })
+    
+    return {
+        "total_checks": total_checks,
+        "real_count": real_count,
+        "fake_count": fake_count
+    }
+
+
 @router.post("/logout")
 async def logout(current_user: dict = Depends(get_current_user)):
     """

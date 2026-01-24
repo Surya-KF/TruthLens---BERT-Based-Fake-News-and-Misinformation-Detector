@@ -27,11 +27,13 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [history, setHistory] = useState([]);
+  const [stats, setStats] = useState({ total_checks: 0, real_count: 0, fake_count: 0 });
   const [showHistory, setShowHistory] = useState(false);
   const [analysisTime, setAnalysisTime] = useState(null);
 
   useEffect(() => {
     loadHistory();
+    loadStats();
   }, []);
 
   const loadHistory = async () => {
@@ -40,6 +42,15 @@ const Dashboard = () => {
       setHistory(response.data.predictions || []);
     } catch (err) {
       console.error('Failed to load history:', err);
+    }
+  };
+
+  const loadStats = async () => {
+    try {
+      const response = await authAPI.getStats();
+      setStats(response.data);
+    } catch (err) {
+      console.error('Failed to load stats:', err);
     }
   };
 
@@ -59,6 +70,7 @@ const Dashboard = () => {
       setResult(response.data);
       setAnalysisTime(((Date.now() - startTime) / 1000).toFixed(1));
       loadHistory();
+      loadStats();
     } catch (err) {
       setError(err.response?.data?.detail || 'Analysis failed. Please try again.');
     } finally {
@@ -372,7 +384,7 @@ const Dashboard = () => {
                   </div>
                   <div>
                     <p className="text-sm text-slate-400">Total Checks</p>
-                    <p className="font-semibold text-white">{history.length}</p>
+                    <p className="font-semibold text-white">{stats.total_checks}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-slate-900 rounded-xl">
@@ -381,9 +393,7 @@ const Dashboard = () => {
                   </div>
                   <div>
                     <p className="text-sm text-slate-400">Verified Real</p>
-                    <p className="font-semibold text-white">
-                      {history.filter(h => !h.is_fake).length}
-                    </p>
+                    <p className="font-semibold text-white">{stats.real_count}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-slate-900 rounded-xl">
@@ -392,9 +402,7 @@ const Dashboard = () => {
                   </div>
                   <div>
                     <p className="text-sm text-slate-400">Detected Fake</p>
-                    <p className="font-semibold text-white">
-                      {history.filter(h => h.is_fake).length}
-                    </p>
+                    <p className="font-semibold text-white">{stats.fake_count}</p>
                   </div>
                 </div>
               </div>

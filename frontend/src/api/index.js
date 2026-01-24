@@ -37,6 +37,7 @@ export const authAPI = {
   login: (data) => api.post('/auth/login', data),
   getMe: () => api.get('/auth/me'),
   getHistory: (limit = 20) => api.get(`/auth/history?limit=${limit}`),
+  getStats: () => api.get('/auth/stats'),
   logout: () => api.post('/auth/logout'),
 };
 

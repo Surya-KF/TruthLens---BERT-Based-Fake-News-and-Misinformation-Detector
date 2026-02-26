@@ -381,11 +381,13 @@ class NewsValidator:
                     result['prediction'] = 'real'
                     result['is_fake'] = False
                     result['confidence'] = min(0.90, 0.7 + (relevant_count * 0.05))
+                    result['probabilities'] = {'real': result['confidence'], 'fake': 1 - result['confidence']}
                     result['news_insight'] = f"✓ Verified as REAL by {relevant_count} credible news source(s). AI prediction overridden."
                     result['override_reason'] = 'news_sources_confirm'
                 elif result.get('prediction') == 'real':
                     # Boost confidence for real prediction
                     result['confidence'] = min(0.95, result.get('confidence', 0.5) + 0.15)
+                    result['probabilities'] = {'real': result['confidence'], 'fake': 1 - result['confidence']}
                 
             elif verification == 'limited':
                 result['news_insight'] = "Limited news coverage found."
@@ -396,6 +398,7 @@ class NewsValidator:
                     result['prediction'] = 'real'
                     result['is_fake'] = False
                     result['confidence'] = min(0.75, 0.6 + (relevant_count * 0.05))
+                    result['probabilities'] = {'real': result['confidence'], 'fake': 1 - result['confidence']}
                     result['news_insight'] = f"✓ Found {relevant_count} news source(s) covering this topic. Likely REAL."
                     result['override_reason'] = 'news_source_found'
                 

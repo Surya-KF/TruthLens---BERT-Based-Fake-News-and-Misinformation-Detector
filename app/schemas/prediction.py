@@ -13,6 +13,25 @@ class PredictionRequest(BaseModel):
             }
         }
 
+class ImagePredictionRequest(BaseModel):
+    image: str = Field(..., description="Base64 encoded image data")
+    mime_type: str = Field(default="image/jpeg", description="Image MIME type (image/jpeg, image/png)")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "image": "base64_encoded_image_data_here...",
+                "mime_type": "image/jpeg"
+            }
+        }
+
+class ImageExtractionResponse(BaseModel):
+    title: str = Field(..., description="Extracted news title from image")
+    text: str = Field(..., description="Extracted text content from image")
+    source: Optional[str] = Field(default=None, description="News source if detected")
+    date: Optional[str] = Field(default=None, description="Date if detected")
+    extraction_success: bool = Field(..., description="Whether text extraction was successful")
+
 class PredictionResponse(BaseModel):
     text: str = Field(..., description="Original input text")
     prediction: str = Field(..., description="Predicted label (e.g., fake, real)")

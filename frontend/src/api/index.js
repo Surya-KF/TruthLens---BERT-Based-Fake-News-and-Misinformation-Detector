@@ -45,6 +45,10 @@ export const authAPI = {
 export const predictionAPI = {
   predict: (title, text = null) => api.post('/predict', { title, text }),
   batchPredict: (texts) => api.post('/batch-predict', texts),
+  imagePredict: (imageBase64, mimeType = 'image/jpeg') => 
+    api.post('/image-predict', { image: imageBase64, mime_type: mimeType }),
+  extractImageText: (imageBase64, mimeType = 'image/jpeg') =>
+    api.post('/extract-image-text', { image: imageBase64, mime_type: mimeType }),
 };
 
 export default api;

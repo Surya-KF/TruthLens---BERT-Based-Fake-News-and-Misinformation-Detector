@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { predictionAPI, authAPI } from '../api';
@@ -16,7 +16,11 @@ import {
   Clock,
   Target,
   ExternalLink,
-  Newspaper
+  Newspaper,
+  Image,
+  Upload,
+  FileText,
+  X
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
@@ -31,6 +35,13 @@ const Dashboard = () => {
   const [stats, setStats] = useState({ total_checks: 0, real_count: 0, fake_count: 0 });
   const [showHistory, setShowHistory] = useState(false);
   const [analysisTime, setAnalysisTime] = useState(null);
+  
+  // Image upload states
+  const [inputMode, setInputMode] = useState('text'); // 'text' or 'image'
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [extractedText, setExtractedText] = useState(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     loadHistory();
@@ -76,6 +87,79 @@ const Dashboard = () => {
       setError(err.response?.data?.detail || 'Analysis failed. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        setError('Please select an image file');
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        setError('Image size must be less than 10MB');
+        return;
+      }
+      setSelectedImage(file);
+      setError('');
+      setExtractedText(null);
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleImageAnalyze = async () => {
+    if (!selectedImage) {
+      setError('Please select an image first');
+      return;
+    }
+
+    setError('');
+    setLoading(true);
+    setResult(null);
+    const startTime = Date.now();
+
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Data = reader.result.split(',')[1];
+        
+        try {
+          const response = await predictionAPI.imagePredict(base64Data, selectedImage.type);
+          setResult(response.data);
+          if (response.data.image_extraction) {
+            setExtractedText({
+              title: response.data.image_extraction.title,
+              text: response.data.image_extraction.text
+            });
+          }
+          setAnalysisTime(((Date.now() - startTime) / 1000).toFixed(1));
+          loadHistory();
+          loadStats();
+        } catch (err) {
+          setError(err.response?.data?.detail || 'Image analysis failed. Please try again.');
+        } finally {
+          setLoading(false);
+        }
+      };
+      reader.readAsDataURL(selectedImage);
+    } catch (err) {
+      setError('Failed to read image file');
+      setLoading(false);
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    setExtractedText(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -155,71 +239,166 @@ const Dashboard = () => {
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-white">Analyze News</h2>
-                  <p className="text-sm text-slate-400">Paste or type any news article</p>
-                </div>
-              </div>
-              
-              {/* Sample Texts */}
-              <div className="mb-4">
-                <p className="text-sm text-slate-500 mb-2">Try a sample:</p>
-                <div className="flex flex-wrap gap-2">
-                  {sampleTexts.map((sample, i) => (
-                    <button
-                      key={i}
-                      onClick={() => { setTitle(sample.title); setArticleText(sample.text); }}
-                      className="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-400 hover:text-white transition border border-slate-600"
-                    >
-                      Sample {i + 1}
-                    </button>
-                  ))}
+                  <p className="text-sm text-slate-400">Enter text or upload an image</p>
                 </div>
               </div>
 
-              {/* Title Input */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-slate-400 mb-2">News Title / Headline *</label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Enter the news headline..."
-                  className="w-full p-4 bg-slate-900 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-
-              {/* Article Text Input */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-slate-400 mb-2">Article Text (Optional - improves accuracy)</label>
-                <textarea
-                  value={articleText}
-                  onChange={(e) => setArticleText(e.target.value)}
-                  placeholder="Paste the full article content for better analysis..."
-                  className="w-full h-32 p-4 bg-slate-900 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-                />
-              </div>
-              
-              <div className="flex items-center justify-between mt-4">
-                <span className="text-sm text-slate-500">
-                  Title: {title.length} chars | Text: {articleText.length} chars
-                </span>
+              {/* Input Mode Tabs */}
+              <div className="flex gap-2 mb-6 p-1 bg-slate-900 rounded-xl">
                 <button
-                  onClick={handleAnalyze}
-                  disabled={loading || title.length < 5}
-                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-purple-500/30 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => setInputMode('text')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-medium transition ${
+                    inputMode === 'text'
+                      ? 'bg-gradient-to-r from-cyan-500 to-purple-500 text-white'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
                 >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Analyzing...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-5 h-5" />
-                      Analyze
+                  <FileText className="w-4 h-4" />
+                  Text Input
+                </button>
+                <button
+                  onClick={() => setInputMode('image')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-medium transition ${
+                    inputMode === 'image'
+                      ? 'bg-gradient-to-r from-cyan-500 to-purple-500 text-white'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Image className="w-4 h-4" />
+                  Image Upload
+                </button>
+              </div>
+
+              {inputMode === 'text' ? (
+                <>
+                  {/* Sample Texts */}
+                  <div className="mb-4">
+                    <p className="text-sm text-slate-500 mb-2">Try a sample:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {sampleTexts.map((sample, i) => (
+                        <button
+                          key={i}
+                          onClick={() => { setTitle(sample.title); setArticleText(sample.text); }}
+                          className="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-400 hover:text-white transition border border-slate-600"
+                        >
+                          Sample {i + 1}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Title Input */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-slate-400 mb-2">News Title / Headline *</label>
+                    <input
+                      type="text"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="Enter the news headline..."
+                      className="w-full p-4 bg-slate-900 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  {/* Article Text Input */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-slate-400 mb-2">Article Text (Optional - improves accuracy)</label>
+                    <textarea
+                      value={articleText}
+                      onChange={(e) => setArticleText(e.target.value)}
+                      placeholder="Paste the full article content for better analysis..."
+                      className="w-full h-32 p-4 bg-slate-900 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                    />
+                  </div>
+                  
+                  <div className="flex items-center justify-between mt-4">
+                    <span className="text-sm text-slate-500">
+                      Title: {title.length} chars | Text: {articleText.length} chars
+                    </span>
+                    <button
+                      onClick={handleAnalyze}
+                      disabled={loading || title.length < 5}
+                      className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-purple-500/30 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          Analyzing...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-5 h-5" />
+                          Analyze
                     </>
                   )}
                 </button>
               </div>
+                </>
+              ) : (
+                /* Image Upload Section */
+                <div className="space-y-4">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImageSelect}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                  
+                  {!imagePreview ? (
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="border-2 border-dashed border-slate-600 rounded-xl p-8 text-center cursor-pointer hover:border-purple-500 hover:bg-slate-700/30 transition"
+                    >
+                      <Upload className="w-12 h-12 mx-auto text-slate-500 mb-4" />
+                      <p className="text-slate-400 mb-2">Click to upload or drag and drop</p>
+                      <p className="text-sm text-slate-500">PNG, JPG, WEBP up to 10MB</p>
+                      <p className="text-xs text-slate-600 mt-2">Works great with social media screenshots!</p>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <img
+                        src={imagePreview}
+                        alt="Selected news"
+                        className="w-full max-h-64 object-contain rounded-xl border border-slate-600"
+                      />
+                      <button
+                        onClick={removeImage}
+                        className="absolute top-2 right-2 p-2 bg-red-500/80 hover:bg-red-500 rounded-lg transition"
+                      >
+                        <X className="w-4 h-4 text-white" />
+                      </button>
+                    </div>
+                  )}
+
+                  {extractedText && (
+                    <div className="bg-slate-900 rounded-xl p-4 border border-slate-600">
+                      <h4 className="text-sm font-medium text-cyan-400 mb-2">Extracted Content:</h4>
+                      <p className="text-white font-medium mb-1">{extractedText.title}</p>
+                      {extractedText.text && (
+                        <p className="text-slate-400 text-sm line-clamp-3">{extractedText.text}</p>
+                      )}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleImageAnalyze}
+                    disabled={loading || !selectedImage}
+                    className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-purple-500/30 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Extracting & Analyzing...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-5 h-5" />
+                        Extract & Analyze
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
 
               {error && (
                 <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl flex items-center gap-2">
@@ -383,6 +562,31 @@ const Dashboard = () => {
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Image Extraction Info */}
+                {result.image_extraction && (
+                  <div className="mt-6 p-4 bg-slate-900 rounded-xl border border-slate-700">
+                    <h4 className="font-medium text-white mb-3 flex items-center gap-2">
+                      <Image className="w-5 h-5 text-cyan-400" />
+                      Extracted from Image
+                    </h4>
+                    <div className="space-y-2">
+                      <div>
+                        <span className="text-xs text-slate-500 uppercase">Title:</span>
+                        <p className="text-sm text-white mt-1">{result.image_extraction.title}</p>
+                      </div>
+                      {result.image_extraction.text && (
+                        <div>
+                          <span className="text-xs text-slate-500 uppercase">Content:</span>
+                          <p className="text-sm text-slate-400 mt-1 line-clamp-3">{result.image_extraction.text}</p>
+                        </div>
+                      )}
+                      {result.image_extraction.source && (
+                        <p className="text-xs text-purple-400 mt-2">Source: {result.image_extraction.source}</p>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

@@ -108,12 +108,17 @@ class NewsValidator:
                     source = item.find('source')
                     
                     if title is not None and link is not None:
+                        # Extract and clean the RSS <description> element (contains HTML snippet)
+                        description_elem = item.find('description')
+                        desc_text = ""
+                        if description_elem is not None and description_elem.text:
+                            desc_text = re.sub(r'<[^>]+>', '', description_elem.text).strip()[:300]
                         articles.append({
                             'title': title.text,
                             'url': link.text,
                             'source': source.text if source is not None else 'Google News',
                             'published_at': pub_date.text if pub_date is not None else None,
-                            'description': title.text[:200] if title.text else ''
+                            'description': desc_text or (title.text[:200] if title.text else '')
                         })
                 
                 return {

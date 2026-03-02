@@ -7,11 +7,11 @@ from typing import Optional, Dict, List
 
 load_dotenv()
 
-# Models to try in order (new google-genai SDK supports all Gemini 2.x names)
+# Models to try in order (current stable models per docs.ai.google.dev/gemini-api/docs/models)
 _CANDIDATE_MODELS = [
-    "gemini-2.0-flash",          # fast + free tier
-    "gemini-2.0-flash-lite",     # lighter fallback
-    "gemini-1.5-flash",          # legacy fallback
+    "gemini-2.5-flash-lite",     # most budget-friendly + fastest, separate quota pool
+    "gemini-2.5-flash",          # best price-performance fallback
+    "gemini-2.0-flash",          # deprecated but still available as last resort
 ]
 
 _MAX_RETRIES = 3
@@ -110,13 +110,16 @@ class AIFactChecker:
             if usable_articles:  # noqa: SIM102
                 lines = []
                 for i, art in enumerate(usable_articles[:5], 1):
-                    title   = art.get("title", "").strip()
-                    source  = art.get("source", "Unknown")
-                    url     = art.get("url", "")
-                    desc    = (art.get("description") or art.get("snippet") or "").strip()[:300]
-                    snippet = (art.get("fetched_snippet") or "").strip()[:500]
+                    title    = art.get("title", "").strip()
+                    source   = art.get("source", "Unknown")
+                    url      = art.get("url", "")
+                    pub_date = (art.get("published_at") or "").strip()
+                    desc     = (art.get("description") or art.get("snippet") or "").strip()[:300]
+                    snippet  = (art.get("fetched_snippet") or "").strip()[:500]
 
                     entry  = f"[Article {i}] {source}\n"
+                    if pub_date:
+                        entry += f"  Published: {pub_date}\n"
                     entry += f"  Headline : {title}\n"
                     if desc:
                         entry += f"  Summary  : {desc}\n"

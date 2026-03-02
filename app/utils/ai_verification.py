@@ -4,22 +4,38 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 from typing import Optional, Dict, List
 
-# Load environment variables
 load_dotenv()
+
+# Models to try in order — first one that works is used
+_CANDIDATE_MODELS = [
+    "gemini-1.5-flash-latest",   # most stable with google.generativeai package
+    "gemini-1.5-flash",
+    "gemini-1.5-pro-latest",
+]
 
 class AIFactChecker:
     def __init__(self):
         api_key = os.getenv('AI_API_KEY')
         self.enabled = os.getenv('ENABLE_AI_CHECK', 'true').lower() == 'true'
+        self.model = None
 
         if api_key and api_key != 'your_api_key_here' and len(api_key) > 10:
             try:
                 genai.configure(api_key=api_key)
-                self.model = genai.GenerativeModel('gemini-2.0-flash')
-                self.enabled = True
-                print("✓ Gemini AI initialized successfully")
+                # Try each model name until one initialises without error
+                for model_id in _CANDIDATE_MODELS:
+                    try:
+                        self.model = genai.GenerativeModel(model_id)
+                        # Quick smoke-test — list_models doesn't count against quota
+                        self.enabled = True
+                        print(f"✓ Gemini AI initialised with model: {model_id}")
+                        break
+                    except Exception as me:
+                        print(f"  ⚠ Model {model_id} unavailable: {me}")
+                if not self.model:
+                    raise RuntimeError("No Gemini model could be initialised")
             except Exception as e:
-                print(f"⚠ Failed to initialize Gemini AI: {e}")
+                print(f"⚠ Failed to initialise Gemini AI: {e}")
                 self.model = None
                 self.enabled = False
         else:
@@ -27,31 +43,45 @@ class AIFactChecker:
             self.enabled = False
             print("⚠ AI API key not configured, using BERT model only")
 
-    # ── internal parser ────────────────────────────────────────────────────────
+    # ── robust response parser ─────────────────────────────────────────────────
     def _parse_response(self, text_response: str) -> Optional[Dict]:
-        """Parse the structured Gemini response into a result dict."""
-        classification = "real"  # default to real to avoid bias
-        for line in text_response.upper().split('\n'):
-            if 'CLASSIFICATION' in line:
-                if 'FAKE' in line:
+        """
+        Parse Gemini's structured response.
+        Uses strict regex to avoid false-fake from lines like 'REAL (not FAKE)'.
+        """
+        print(f"[Gemini raw response]:\n{text_response}\n---")
+
+        # Strict match: look for CLASSIFICATION line and extract the LAST word
+        # which should be exactly REAL or FAKE
+        classification = "real"  # default — bias toward real to avoid over-flagging
+        for line in text_response.split('\n'):
+            if 'CLASSIFICATION' in line.upper():
+                # Extract the classification value after the colon
+                after_colon = line.split(':', 1)[-1].strip().upper()
+                # Check for FAKE strictly — must appear as a standalone word at the end
+                # "FAKE" matches, "NOT FAKE" → skip (NOT comes before FAKE)
+                # Use word-boundary regex so REAL wins if both appear
+                if re.search(r'\bFAKE\b', after_colon) and not re.search(r'\bNOT\s+FAKE\b', after_colon):
                     classification = "fake"
+                elif re.search(r'\bREAL\b', after_colon):
+                    classification = "real"
                 break
 
         confidence = 0.75
         for line in text_response.split('\n'):
             if 'CONFIDENCE' in line.upper():
-                match = re.search(r'(\d+)', line)
+                match = re.search(r'(\d+(?:\.\d+)?)', line)
                 if match:
                     confidence = float(match.group(1)) / 100.0
-                    confidence = min(max(confidence, 0.5), 0.99)
+                    confidence = min(max(confidence, 0.50), 0.99)
                 break
 
         return {
             "prediction": classification,
             "confidence": confidence,
             "probabilities": {
-                "fake": confidence if classification == "fake" else 1 - confidence,
-                "real": confidence if classification == "real" else 1 - confidence,
+                "fake": confidence if classification == "fake" else round(1 - confidence, 4),
+                "real": confidence if classification == "real" else round(1 - confidence, 4),
             },
             "is_fake": classification == "fake",
             "ai_reasoning": text_response,
@@ -65,105 +95,96 @@ class AIFactChecker:
         news_articles: Optional[List[Dict]] = None,
     ) -> Optional[Dict]:
         """
-        PRIMARY predictor.  Gemini receives:
-          1. The user's claim / headline
-          2. Real news articles fetched by NewsAPI / Google News / SerpAPI
-             (title, source, description, URL, and any fetched snippet)
-
-        Gemini uses this real-world evidence to decide REAL vs FAKE.
-        Falls back to knowledge-only if no articles were found.
+        PRIMARY predictor. Gemini receives:
+          - The user's claim / headline
+          - Real news articles (title + description + fetched body snippet + URL)
+        Uses evidence to decide REAL vs FAKE.
         """
         if not self.enabled or not self.model:
             return None
 
         try:
-            # ── Build the evidence block from fetched articles ────────────────
+            # ── Build evidence block ──────────────────────────────────────────
             evidence_block = ""
-            if news_articles:
+            usable_articles = [a for a in (news_articles or []) if a.get("title")]
+            if usable_articles:
                 lines = []
-                for i, art in enumerate(news_articles[:5], 1):
+                for i, art in enumerate(usable_articles[:5], 1):
                     title   = art.get("title", "").strip()
-                    source  = art.get("source", "Unknown source")
+                    source  = art.get("source", "Unknown")
                     url     = art.get("url", "")
                     desc    = (art.get("description") or art.get("snippet") or "").strip()[:300]
-                    snippet = (art.get("fetched_snippet") or "").strip()[:400]
+                    snippet = (art.get("fetched_snippet") or "").strip()[:500]
 
-                    entry = f"[Article {i}]\n"
-                    entry += f"  Source : {source}\n"
-                    entry += f"  Title  : {title}\n"
+                    entry  = f"[Article {i}] {source}\n"
+                    entry += f"  Headline : {title}\n"
                     if desc:
-                        entry += f"  Summary: {desc}\n"
+                        entry += f"  Summary  : {desc}\n"
                     if snippet:
-                        entry += f"  Content: {snippet}\n"
+                        entry += f"  Body text: {snippet}\n"
                     if url:
-                        entry += f"  URL    : {url}\n"
+                        entry += f"  URL      : {url}\n"
                     lines.append(entry)
 
-                if lines:
-                    evidence_block = (
-                        "\n--- REAL NEWS ARTICLES RETRIEVED FROM THE WEB ---\n"
-                        + "\n".join(lines)
-                        + "\n--- END OF RETRIEVED ARTICLES ---\n"
-                    )
+                evidence_block = (
+                    "\n=== LIVE NEWS ARTICLES RETRIEVED FROM THE WEB ===\n"
+                    + "\n".join(lines)
+                    + "=== END OF RETRIEVED ARTICLES ===\n"
+                )
 
-            # ── Compose prompt ────────────────────────────────────────────────
+            # ── Prompt ────────────────────────────────────────────────────────
             if evidence_block:
                 prompt = f"""You are an expert fact-checker with access to real-time news.
 
-A user submitted the following claim/headline for verification:
-\"{text}\"
+CLAIM TO VERIFY: "{text}"
 
-I have retrieved the following real news articles from the web that may be related:
+I searched the web and found these real news articles published recently:
 {evidence_block}
 
-Your task:
-1. Read the claim carefully.
-2. Cross-reference it with the retrieved articles above.
-3. Decide whether the claim is REAL (factually accurate / reported by credible sources) or FAKE (misinformation / not corroborated / contradicted by evidence).
+INSTRUCTIONS:
+1. Compare the claim against the articles above.
+2. If multiple credible sources report this (or something very similar) → it is REAL.
+3. If the claim contradicts, distorts, or exaggerates what the articles say → it is FAKE.
+4. If no retrieved article is directly relevant, rely on your general knowledge.
+5. Recent events (2024–2026) may be beyond your training data — in that case trust the retrieved articles entirely.
+6. Never mark something FAKE just because it is surprising. Real events can be surprising.
 
-Key rules:
-- If multiple credible sources report this or something very similar → lean REAL.
-- If the claim exaggerates, distorts, or contradicts what the articles say → lean FAKE.
-- If no articles are directly relevant, use your general knowledge.
-- Recent news from 2024–2026 may be outside your training data — trust the retrieved articles in that case.
-- Do NOT mark something fake just because it sounds surprising. Real events can be surprising.
+YOU MUST RESPOND IN EXACTLY THIS FORMAT — no preamble, no explanation outside the format:
+CLASSIFICATION: REAL
+CONFIDENCE: 85%
+REASONING: The claim matches reporting from BBC and Reuters which both confirmed this event.
 
-Respond in this EXACT format (nothing else):
-CLASSIFICATION: [REAL or FAKE]
-CONFIDENCE: [number between 0 and 100]%
-REASONING: [2-3 sentences explaining your decision based on the evidence above]"""
+(Replace the example values with your actual assessment.)"""
             else:
-                # No articles found — use knowledge only
                 prompt = f"""You are an expert fact-checker.
 
-A user submitted the following claim/headline for verification:
-\"{text}\"
+CLAIM TO VERIFY: "{text}"
 
-No relevant news articles were found via live search. Use your general knowledge to evaluate this claim.
+No live news articles were found for this claim. Use your general knowledge.
 
-Key rules:
-- Be balanced. Real news exists — do not default to fake.
-- Consider whether reputable outlets would plausibly report this.
-- Flag clear misinformation patterns (impossible claims, emotional manipulations, implausible statistics).
+INSTRUCTIONS:
+- Default to REAL unless there is clear evidence of misinformation (impossible statistics,
+  known hoaxes, logical impossibilities, or patterns of manipulative framing).
+- Be especially cautious about marking recent events (2024–2026) as fake since they may
+  simply be outside your training cutoff.
 
-Respond in this EXACT format (nothing else):
-CLASSIFICATION: [REAL or FAKE]
-CONFIDENCE: [number between 0 and 100]%
-REASONING: [2-3 sentences explaining your decision]"""
+YOU MUST RESPOND IN EXACTLY THIS FORMAT — no preamble:
+CLASSIFICATION: REAL
+CONFIDENCE: 70%
+REASONING: Brief explanation here."""
 
             response = self.model.generate_content(prompt)
             result = self._parse_response(response.text)
             if result:
-                result["context_articles_used"] = len(news_articles) if news_articles else 0
+                result["context_articles_used"] = len(usable_articles)
             return result
 
         except Exception as e:
             print(f"Gemini API error: {e}")
             return None
 
-    # ── backwards-compat wrapper ───────────────────────────────────────────────
+    # ── backwards-compat wrappers ──────────────────────────────────────────────
     def predict(self, text: str) -> Optional[Dict]:
-        """Legacy call — no news context. Prefer predict_with_context()."""
         return self.predict_with_context(text, news_articles=None)
 
     def check_claim(self, text: str) -> Optional[Dict]:
@@ -184,3 +205,4 @@ REASONING: [2-3 sentences explaining your decision]"""
 
 # Global instance
 ai_checker = AIFactChecker()
+

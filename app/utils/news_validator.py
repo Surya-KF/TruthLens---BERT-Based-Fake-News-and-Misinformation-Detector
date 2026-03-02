@@ -209,30 +209,52 @@ class NewsValidator:
         """
         Fetch the opening paragraphs of an article URL so Gemini gets
         real content, not just the headline.
+
+        Handles Google News redirect URLs (news.google.com/rss/articles/...)
+        by resolving the redirect with a HEAD request first.
         Returns an empty string on any error (non-blocking).
         """
         if not url or not url.startswith("http"):
             return ""
         try:
             from bs4 import BeautifulSoup
+
             headers = {
                 "User-Agent": (
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                     "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/122.0 Safari/537.36"
-                )
+                    "Chrome/122.0.0.0 Safari/537.36"
+                ),
+                "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
             }
-            resp = requests.get(url, headers=headers, timeout=6, allow_redirects=True)
+
+            # Google News RSS returns redirect URLs — resolve them first
+            if "news.google.com" in url:
+                try:
+                    head = requests.head(url, headers=headers, timeout=5, allow_redirects=True)
+                    resolved = head.url
+                    if resolved and resolved != url and "news.google.com" not in resolved:
+                        url = resolved
+                except Exception:
+                    pass  # keep original URL and attempt anyway
+
+            resp = requests.get(url, headers=headers, timeout=7, allow_redirects=True)
             if resp.status_code != 200:
                 return ""
+
+            # Many paywalled sites return thin HTML but some text still leaks
             soup = BeautifulSoup(resp.text, "html.parser")
-            # Remove noise
-            for tag in soup(["script", "style", "nav", "header", "footer", "aside"]):
+            for tag in soup(["script", "style", "nav", "header", "footer", "aside", "figure"]):
                 tag.decompose()
-            # Collect paragraph text
-            paragraphs = [p.get_text(" ", strip=True) for p in soup.find_all("p") if len(p.get_text(strip=True)) > 60]
+            paragraphs = [
+                p.get_text(" ", strip=True)
+                for p in soup.find_all("p")
+                if len(p.get_text(strip=True)) > 60
+            ]
             snippet = " ".join(paragraphs[:6])
             return snippet[:max_chars].strip()
+
         except Exception:
             return ""
 

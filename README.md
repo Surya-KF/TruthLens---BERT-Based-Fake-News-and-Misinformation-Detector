@@ -234,10 +234,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES=1440
 MODEL_PATH=./enhanced_bert_liar_model
 MAX_LENGTH=512
 
-# AI Verification (optional — enables secondary cross-check)
-ENABLE_AI_CHECK=true
-AI_API_KEY=your_ai_api_key
-
 # News Validation APIs (optional — Google News RSS works without a key)
 NEWSAPI_KEY=your_newsapi_key
 SERPAPI_KEY=your_serpapi_key
@@ -461,8 +457,6 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | ❌ | Token TTL (default: 1440) |
 | `MODEL_PATH` | ❌ | Path to BERT model dir (default: `./enhanced_bert_liar_model`) |
 | `MAX_LENGTH` | ❌ | Tokeniser max length (default: 512) |
-| `ENABLE_AI_CHECK` | ❌ | Enable secondary AI verification (default: false) |
-| `AI_API_KEY` | ❌ | API key for secondary AI verification service |
 | `NEWSAPI_KEY` | ❌ | [NewsAPI](https://newsapi.org) key |
 | `SERPAPI_KEY` | ❌ | [SerpAPI](https://serpapi.com) key |
 | `API_HOST` | ❌ | Bind address (default: `0.0.0.0`) |
@@ -470,7 +464,35 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 ---
 
-## 📝 API Documentation
+## � Datasets
+
+TruthLens was trained and evaluated on two public fake-news benchmark datasets:
+
+### LIAR Dataset
+| Property | Detail |
+|----------|--------|
+| **Source** | [William Yang Wang, 2017](https://aclanthology.org/P17-2067/) — UCSB |
+| **Size** | ~12,800 labelled statements |
+| **Labels** | 6 fine-grained classes (pants-fire, false, barely-true, half-true, mostly-true, true) → binarised to **fake / real** |
+| **Domain** | Political statements from PolitiFact.com |
+| **Use in project** | Fine-tuned `enhanced_bert_liar_model/` — specialised in detecting political misinformation |
+| **License** | Public domain / research use |
+
+### WELFake Dataset
+| Property | Detail |
+|----------|--------|
+| **Source** | [Verma et al., 2021](https://doi.org/10.1109/TVCG.2021.3071339) |
+| **Size** | 72,134 news articles (35,028 fake · 37,106 real) |
+| **Labels** | Binary — **0 = Fake**, **1 = Real** |
+| **Domain** | Mixed sources: Kaggle, McIntire, Reuters, BuzzFeed Political |
+| **Use in project** | Fine-tuned `enhanced_bert_welfake_model/` — broader general-news coverage |
+| **License** | CC BY 4.0 |
+
+> The raw WELFake CSV (`Data/WELFake_Dataset.csv`) and the fine-tuning notebooks are in `Notebook/` for full reproducibility.
+
+---
+
+## �📝 API Documentation
 
 With the backend running, interactive docs are available at:
 

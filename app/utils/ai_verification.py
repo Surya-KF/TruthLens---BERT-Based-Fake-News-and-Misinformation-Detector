@@ -173,16 +173,17 @@ CLASSIFICATION: REAL
 CONFIDENCE: 70%
 REASONING: Brief explanation here."""
 
-            # ── Call Gemini with retry logic for quota errors ─────────────
+            # ── Call Gemini — try each model, fall to next on quota error ────
             last_error = None
             for attempt in range(_MAX_RETRIES):
+                all_quota = True
                 for model_id in _CANDIDATE_MODELS:
                     try:
                         response = self._client.models.generate_content(
                             model=model_id,
                             contents=prompt,
                         )
-                        self._model_id = model_id  # remember which model worked
+                        self._model_id = model_id
                         result = self._parse_response(response.text)
                         if result:
                             result["context_articles_used"] = len(usable_articles)
@@ -190,17 +191,34 @@ REASONING: Brief explanation here."""
                     except Exception as model_err:
                         err_str = str(model_err)
                         last_error = model_err
-                        if "quota" in err_str.lower() or "429" in err_str or "resource_exhausted" in err_str.lower():
-                            print(f"⚠ Quota hit on {model_id} (attempt {attempt+1}). Waiting {_RETRY_DELAY}s…")
-                            time.sleep(_RETRY_DELAY)
-                            break  # break model loop, retry outer loop
-                        print(f"⚠ Model {model_id} error: {err_str[:120]}")
-                        # try next model immediately
-            print(f"Gemini API error after {_MAX_RETRIES} attempts: {last_error}")
+                        is_quota = (
+                            "quota" in err_str.lower()
+                            or "429" in err_str
+                            or "resource_exhausted" in err_str.lower()
+                        )
+                        if is_quota:
+                            # Parse suggested retry delay from error body
+                            delay_match = re.search(r'retry in (\d+(?:\.\d+)?)s', err_str.lower())
+                            suggested = int(float(delay_match.group(1))) + 2 if delay_match else _RETRY_DELAY
+                            print(f"⚠ Quota on {model_id} (attempt {attempt+1}), trying next model…")
+                            # DO NOT sleep here — try next model first
+                            continue  # ← try next model immediately
+                        else:
+                            all_quota = False
+                            print(f"⚠ Model {model_id} error: {err_str[:120]}")
+                            continue  # try next model
+
+                # All models failed this attempt
+                if all_quota and attempt < _MAX_RETRIES - 1:
+                    wait = suggested if 'suggested' in dir() else _RETRY_DELAY
+                    print(f"⚠ All models quota-exhausted. Waiting {wait}s before retry {attempt+2}/{_MAX_RETRIES}…")
+                    time.sleep(wait)
+
+            print(f"Gemini: all {len(_CANDIDATE_MODELS)} models failed after {_MAX_RETRIES} attempts. Last error: {str(last_error)[:200]}")
             return None
 
         except Exception as e:
-            print(f"Gemini API error: {e}")
+            print(f"Gemini unexpected error: {e}")
             return None
 
     # ── backwards-compat wrappers ──────────────────────────────────────────────

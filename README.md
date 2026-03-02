@@ -2,11 +2,27 @@
 
 A full-stack web application that detects fake news using a fine-tuned BERT transformer model, multi-layer AI verification, real-time news source validation, image OCR analysis, and a fully animated React interface with MongoDB-backed user authentication.
 
+## 🌐 Live Demo
+
+| | Link |
+|---|---|
+| **🖥️ Frontend (React App)** | **[https://truth-lens-bert-based-fake-news-and.vercel.app](https://truth-lens-bert-based-fake-news-and.vercel.app)** |
+| **⚙️ Backend API** | [https://suryakf-truthlens-backend.hf.space](https://suryakf-truthlens-backend.hf.space) |
+| **📖 Swagger / API Docs** | [https://suryakf-truthlens-backend.hf.space/docs](https://suryakf-truthlens-backend.hf.space/docs) |
+
+> The backend runs on **Hugging Face Spaces** (CPU Basic — 2 vCPU, 16 GB RAM).  
+> The frontend is deployed on **Vercel** with global CDN.  
+> The database is **MongoDB Atlas** (M0 free cluster).
+
+---
+
 ![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)
 ![React](https://img.shields.io/badge/React-18.2+-61DAFB.svg)
 ![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248.svg)
 ![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.3+-38B2AC.svg)
+![HuggingFace](https://img.shields.io/badge/HuggingFace-Spaces-FFD21E.svg)
+![Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 ---
@@ -145,7 +161,40 @@ FinalYearProject/
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Production Deployment
+
+This project is deployed using **100% free, open-source tools**:
+
+```
+Browser
+  └──▶  Vercel (React/Vite frontend)
+              └── VITE_API_URL ──▶  Hugging Face Spaces (FastAPI + BERT)
+                                          └── MONGODB_URL ──▶  MongoDB Atlas
+```
+
+| Layer | Platform | Plan | Notes |
+|-------|----------|------|-------|
+| Frontend | [Vercel](https://vercel.com) | Free | Auto-deploys on `git push` to `main` |
+| Backend | [Hugging Face Spaces](https://huggingface.co/spaces) | CPU Basic (Free) | 2 vCPU · 16 GB RAM — enough for PyTorch BERT |
+| Database | [MongoDB Atlas](https://cloud.mongodb.com) | M0 Free | 512 MB persistent storage |
+
+### Deploy your own copy
+
+**Backend (HF Spaces)**
+1. Fork this repo
+2. Create a new Space at huggingface.co → SDK: **Docker**
+3. Push the code: `git clone https://huggingface.co/spaces/YOUR_HF_USER/your-space` then copy `app/`, `enhanced_bert_*/`, `run_api.py`, `pyproject.toml`, `Dockerfile.huggingface` (rename to `Dockerfile`)
+4. Add secrets in Space Settings: `MONGODB_URL`, `SECRET_KEY`, `AI_API_KEY`, `MISTRAL_API_KEY`, `ALLOWED_ORIGINS`
+
+**Frontend (Vercel)**
+1. Import your GitHub repo in Vercel
+2. Set **Root Directory** → `frontend`
+3. Add env var: `VITE_API_URL=https://YOUR_HF_USER-your-space.hf.space/api`
+4. Deploy
+
+---
+
+## 💻 Local Development
 
 ### Prerequisites
 

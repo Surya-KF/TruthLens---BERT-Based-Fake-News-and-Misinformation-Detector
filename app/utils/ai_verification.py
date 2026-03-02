@@ -1,45 +1,45 @@
 import os
 import re
-import google.generativeai as genai
+import time
+from google import genai
 from dotenv import load_dotenv
 from typing import Optional, Dict, List
 
 load_dotenv()
 
-# Models to try in order — first one that works is used
+# Models to try in order (new google-genai SDK supports all Gemini 2.x names)
 _CANDIDATE_MODELS = [
-    "gemini-1.5-flash-latest",   # most stable with google.generativeai package
-    "gemini-1.5-flash",
-    "gemini-1.5-pro-latest",
+    "gemini-2.0-flash",          # fast + free tier
+    "gemini-2.0-flash-lite",     # lighter fallback
+    "gemini-1.5-flash",          # legacy fallback
 ]
+
+_MAX_RETRIES = 3
+_RETRY_DELAY = 30  # seconds to wait on quota error
 
 class AIFactChecker:
     def __init__(self):
         api_key = os.getenv('AI_API_KEY')
         self.enabled = os.getenv('ENABLE_AI_CHECK', 'true').lower() == 'true'
-        self.model = None
+        self._client = None
+        self._model_id = None
 
         if api_key and api_key != 'your_api_key_here' and len(api_key) > 10:
             try:
-                genai.configure(api_key=api_key)
-                # Try each model name until one initialises without error
-                for model_id in _CANDIDATE_MODELS:
-                    try:
-                        self.model = genai.GenerativeModel(model_id)
-                        # Quick smoke-test — list_models doesn't count against quota
-                        self.enabled = True
-                        print(f"✓ Gemini AI initialised with model: {model_id}")
-                        break
-                    except Exception as me:
-                        print(f"  ⚠ Model {model_id} unavailable: {me}")
-                if not self.model:
-                    raise RuntimeError("No Gemini model could be initialised")
+                # New google-genai SDK uses a Client object
+                self._client = genai.Client(api_key=api_key)
+                # Pick the first model that doesn't raise on a list call
+                self._model_id = _CANDIDATE_MODELS[0]  # will be confirmed on first call
+                self.enabled = True
+                print(f"✓ Gemini AI (google-genai SDK) ready — primary model: {self._model_id}")
             except Exception as e:
                 print(f"⚠ Failed to initialise Gemini AI: {e}")
-                self.model = None
+                self._client = None
+                self._model_id = None
                 self.enabled = False
         else:
-            self.model = None
+            self._client = None
+            self._model_id = None
             self.enabled = False
             print("⚠ AI API key not configured, using BERT model only")
 
@@ -100,14 +100,14 @@ class AIFactChecker:
           - Real news articles (title + description + fetched body snippet + URL)
         Uses evidence to decide REAL vs FAKE.
         """
-        if not self.enabled or not self.model:
+        if not self.enabled or not self._client:
             return None
 
         try:
             # ── Build evidence block ──────────────────────────────────────────
             evidence_block = ""
             usable_articles = [a for a in (news_articles or []) if a.get("title")]
-            if usable_articles:
+            if usable_articles:  # noqa: SIM102
                 lines = []
                 for i, art in enumerate(usable_articles[:5], 1):
                     title   = art.get("title", "").strip()
@@ -173,11 +173,31 @@ CLASSIFICATION: REAL
 CONFIDENCE: 70%
 REASONING: Brief explanation here."""
 
-            response = self.model.generate_content(prompt)
-            result = self._parse_response(response.text)
-            if result:
-                result["context_articles_used"] = len(usable_articles)
-            return result
+            # ── Call Gemini with retry logic for quota errors ─────────────
+            last_error = None
+            for attempt in range(_MAX_RETRIES):
+                for model_id in _CANDIDATE_MODELS:
+                    try:
+                        response = self._client.models.generate_content(
+                            model=model_id,
+                            contents=prompt,
+                        )
+                        self._model_id = model_id  # remember which model worked
+                        result = self._parse_response(response.text)
+                        if result:
+                            result["context_articles_used"] = len(usable_articles)
+                        return result
+                    except Exception as model_err:
+                        err_str = str(model_err)
+                        last_error = model_err
+                        if "quota" in err_str.lower() or "429" in err_str or "resource_exhausted" in err_str.lower():
+                            print(f"⚠ Quota hit on {model_id} (attempt {attempt+1}). Waiting {_RETRY_DELAY}s…")
+                            time.sleep(_RETRY_DELAY)
+                            break  # break model loop, retry outer loop
+                        print(f"⚠ Model {model_id} error: {err_str[:120]}")
+                        # try next model immediately
+            print(f"Gemini API error after {_MAX_RETRIES} attempts: {last_error}")
+            return None
 
         except Exception as e:
             print(f"Gemini API error: {e}")

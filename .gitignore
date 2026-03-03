@@ -70,6 +70,7 @@ env/
 
 # UV package manager
 .uv/
+uv.lock
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
@@ -225,3 +226,9 @@ docker-compose.override.yml
 *.orig
 *.rej
 .history/
+
+# =================================
+# HF Spaces deployment repo
+# (separate git repo — not a submodule)
+# =================================
+truthlens-backend/

@@ -1,6 +1,6 @@
-# 🛡️ TruthLens — AI-Powered Fake News Detector
+﻿# 🛡️ TruthLens — BERT-Based Fake News Detector
 
-A full-stack web application that detects fake news using a fine-tuned BERT transformer model, multi-layer AI verification, real-time news source validation, image OCR analysis, and a fully animated React interface with MongoDB-backed user authentication.
+A full-stack web application that detects fake news using a **large language model (LLM)** as the primary classifier, backed by a fine-tuned BERT transformer model, real-time Google News RSS validation, image OCR analysis, API rate limiting, and a fully animated React interface with MongoDB-backed user authentication.
 
 ## 🌐 Live Demo
 
@@ -10,13 +10,13 @@ A full-stack web application that detects fake news using a fine-tuned BERT tran
 | **⚙️ Backend API** | [https://suryakf-truthlens-backend.hf.space](https://suryakf-truthlens-backend.hf.space) |
 | **📖 Swagger / API Docs** | [https://suryakf-truthlens-backend.hf.space/docs](https://suryakf-truthlens-backend.hf.space/docs) |
 
-> The backend runs on **Hugging Face Spaces** (CPU Basic — 2 vCPU, 16 GB RAM).  
-> The frontend is deployed on **Vercel** with global CDN.  
+> The backend runs on **Hugging Face Spaces** (CPU Basic — 2 vCPU, 16 GB RAM).
+> The frontend is deployed on **Vercel** with global CDN.
 > The database is **MongoDB Atlas** (M0 free cluster).
 
 ---
 
-![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)
+![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)
 ![React](https://img.shields.io/badge/React-18.2+-61DAFB.svg)
 ![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248.svg)
@@ -29,37 +29,46 @@ A full-stack web application that detects fake news using a fine-tuned BERT tran
 
 ## ✨ Features
 
-### Core Detection
-- **BERT-Based Classification** — Fine-tuned transformer model achieving 95%+ accuracy on binary fake/real classification
-- **Confidence Scoring** — Per-prediction probability distribution (fake vs real) visualised as a live pie chart
-- **Multi-Layer AI Verification** — Secondary AI cross-check that cross-references the BERT output for improved reliability
-- **Batch Analysis** — Submit multiple news texts in one request
+### Core Detection Pipeline
+- **LLM Fact-Checker (Primary)** — A large language model is the main classifier. It receives the claim + live news context and returns `REAL`, `FAKE`, or `UNVERIFIED` with confidence and full reasoning.
+- **Automatic model fallback** — Multiple model tiers are tried in order; the system automatically falls back on quota or availability errors.
+- **Fine-tuned BERT (Fallback only)** — PyTorch BERT model (~95% accuracy) activates only when the LLM is unavailable.
+- **Three-label output** — `REAL` / `FAKE` / `UNVERIFIED`. The LLM outputs UNVERIFIED when evidence is inconclusive, avoiding over-flagging real recent news as fake.
+- **Confidence Scoring** — Per-prediction probability distribution visualised as a live pie chart.
+- **Batch Analysis** — Submit up to 10 news texts in one request.
 
 ### News Source Validation
-- **Google News RSS** — Free real-time headline matching (no API key required)
-- **NewsAPI Integration** — Extended article lookup with source attribution
-- **SerpAPI Integration** — Fallback search-engine news verification
-- **Contextual Insights** — Human-readable summary of whether the claim was corroborated
+- **Google News RSS** — Free real-time headline search (no API key required). Retrieves title, source, publish date, and article description.
+- **NewsAPI Integration** — Extended article lookup with source attribution.
+- **SerpAPI Integration** — Fallback search-engine news verification.
+- **Live context injection** — All retrieved articles (headline + summary + URL + publish date) are passed directly into the LLM's prompt so it cross-references the claim against real-world evidence.
 
 ### Image & OCR
-- **Screenshot Upload** — Paste or upload a screenshot of a news headline/article
-- **Automatic Text Extraction** — OCR pipeline extracts text from the image before running it through the classifier
+- **Screenshot Upload** — Paste or upload a screenshot of a news headline/article.
+- **Mistral OCR** — Extracts title, body text, source, and date from the image.
+- **Same pipeline as text** — After OCR, the extracted headline goes through the same LLM-primary flow (news search → LLM with context → BERT fallback).
+
+### Rate Limiting
+API rate limits enforced via **slowapi** (per client IP):
+
+| Endpoint | Limit |
+|---|---|
+| `POST /api/predict` | 30 / minute |
+| `POST /api/batch-predict` | 5 / minute |
+| `POST /api/image-predict` | 10 / minute |
+| `POST /api/extract-image-text` | 10 / minute |
+| `POST /api/auth/login` | 5 / minute |
+| `POST /api/auth/register` | 3 / minute |
 
 ### Authentication & History
-- **JWT Authentication** — 24-hour access tokens, bcrypt-hashed passwords
-- **Prediction History** — Every analysis stored with timestamp and label in MongoDB
-- **User Dashboard** — Live stats, streak counter, accuracy breakdown
+- **JWT Authentication** — 24-hour access tokens, bcrypt-hashed passwords.
+- **Prediction History** — Every analysis stored with timestamp and label in MongoDB.
+- **User Dashboard** — Live stats, streak counter, accuracy breakdown.
 
 ### Developer Experience
-- **Rotating Log Files** — All API activity written to `logs/app.log` (10 MB cap, 5 backups)
-- **Swagger / ReDoc** — Auto-generated interactive API docs at `/docs` and `/redoc`
-- **Environment-Driven Config** — Feature flags via `.env` (AI check, news APIs, model path)
-
-### Frontend Animations
-- **Animated SVG Backgrounds** — Page-specific particle systems, orbit rings, ripple hexagons, and star fields
-- **GSAP ScrollTrigger** — Cinematic slow-scroll storytelling on the How It Works section
-- **Framer Motion Transitions** — Blur + scale page transitions between routes
-- **Glassmorphism UI** — Layered `glass-card` and `glass-card-dim` surfaces with backdrop blur
+- **Rotating Log Files** — All API activity written to `logs/app.log` (10 MB cap, 5 backups).
+- **Swagger / ReDoc** — Auto-generated interactive API docs at `/docs` and `/redoc`.
+- **Environment-Driven Config** — All secrets via `.env`.
 
 ---
 
@@ -67,26 +76,40 @@ A full-stack web application that detects fake news using a fine-tuned BERT tran
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         FRONTEND (React + Vite)                 │
-│  Home  │  Login  │  Register  │  Dashboard                      │
-│  GSAP ScrollTrigger · Framer Motion · TailwindCSS · Recharts    │
+│                    FRONTEND (React + Vite)                      │
+│   Home  │  Login  │  Register  │  Dashboard                     │
+│   GSAP ScrollTrigger · Framer Motion · TailwindCSS · Recharts   │
 └────────────────────────────┬────────────────────────────────────┘
-                             │ HTTP / JWT
+                             │ HTTPS / JWT
 ┌────────────────────────────▼────────────────────────────────────┐
-│                       BACKEND (FastAPI)                         │
-│  /api/predict   /api/batch-predict   /api/auth/*                │
-│  Logging Middleware → logs/app.log (RotatingFileHandler)        │
-└──────┬──────────────────────┬──────────────────────┬────────────┘
-       │                      │                      │
-┌──────▼──────┐   ┌───────────▼──────────┐  ┌───────▼─────────────┐
-│ BERT Model  │   │  News Validator       │ │  AI Verification    │
-│ (PyTorch +  │   │  Google News RSS      │ │  Multi-layer cross  │
-│ Transformers│   │  NewsAPI · SerpAPI    │ │  check layer        │
-│ ~95% acc.)  │   └──────────────────────┘  └─────────────────────┘
-└──────┬──────┘
-       │
-┌──────▼──────────────────────────────────────────────────────────┐
-│                    MongoDB Atlas (Motor async)                  │
+│                      BACKEND (FastAPI)                          │
+│  Rate Limiting (slowapi) → Logging Middleware → logs/app.log    │
+│  /api/predict   /api/batch-predict   /api/image-predict         │
+└──────┬──────────────────────────────────────┬───────────────────┘
+       │                                      │
+       ▼  STEP 1                              ▼  STEP 1 (image)
+┌─────────────────┐                  ┌─────────────────────┐
+│ News Validator  │                  │   Mistral OCR       │
+│ Google News RSS │                  │ Extracts title +    │
+│ NewsAPI         │                  │ text from image     │
+│ SerpAPI         │                  └──────────┬──────────┘
+└────────┬────────┘                             │
+         │ articles (title+desc+date+url)       │ extracted headline
+         ▼  STEP 2 (PRIMARY)                    ▼  STEP 2 (PRIMARY)
+┌─────────────────────────────────────────────────────────────────┐
+│                    LLM Fact-Checker                             │
+│        Primary model → Fallback 1 → Fallback 2                  │
+│  Output: REAL / FAKE / UNVERIFIED + confidence + reasoning      │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │ (only if ALL Gemini models fail)
+                                ▼  STEP 3 (FALLBACK)
+                   ┌────────────────────────┐
+                   │  Fine-tuned BERT       │
+                   │  PyTorch + HF ~95% acc │
+                   └────────────────────────┘
+                                │
+┌───────────────────────────────▼─────────────────────────────────┐
+│                  MongoDB Atlas (Motor async)                    │
 │          users collection · predictions collection              │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -98,64 +121,39 @@ A full-stack web application that detects fake news using a fine-tuned BERT tran
 ```
 FinalYearProject/
 ├── app/
-│   ├── main.py              # FastAPI app, CORS, logging middleware
+│   ├── main.py              # FastAPI app, CORS, rate limiter, logging middleware
 │   ├── auth.py              # JWT token logic, bcrypt helpers
 │   ├── database.py          # Motor async MongoDB client
+│   ├── limiter.py           # Shared slowapi Limiter instance
 │   ├── api/
-│   │   ├── routes.py        # Prediction endpoints (/api/predict, /api/batch-predict)
+│   │   ├── routes.py        # Prediction endpoints (/api/predict, /api/batch-predict, /api/image-predict)
 │   │   └── auth_routes.py   # Auth endpoints (/api/auth/*)
 │   ├── models/
-│   │   └── bert_model.py    # BERT inference wrapper (PyTorch)
+│   │   └── bert_model.py    # BERT inference wrapper (fallback only)
 │   ├── schemas/
 │   │   ├── prediction.py    # Pydantic request/response models
 │   │   └── auth.py          # User & token schemas
 │   └── utils/
-│       ├── news_validator.py # Multi-source news validation
-│       ├── ai_verification.py# Secondary AI verification layer
-│       ├── image_ocr.py      # Image upload + text extraction
-│       └── logger.py         # RotatingFileHandler logger factory
-├── enhanced_bert_liar_model/ # Fine-tuned weights + tokenizer
-│   ├── model.pth
-│   ├── tokenizer.json
-│   ├── tokenizer_config.json
-│   ├── special_tokens_map.json
-│   └── vocab.txt
-├── enhanced_bert_welfake_model/ # Alternative WELFake model weights
-│   ├── model.pth
-│   ├── tokenizer.json
-│   ├── tokenizer_config.json
-│   └── vocab.txt
+│       ├── ai_verification.py # LLM fact-checker (primary classifier)
+│       ├── news_validator.py  # Multi-source news validation + RSS parser
+│       ├── image_ocr.py       # Mistral OCR — image upload + text extraction
+│       └── logger.py          # RotatingFileHandler logger factory
+├── enhanced_bert_liar_model/   # BERT fine-tuned on LIAR dataset (fallback)
+├── enhanced_bert_welfake_model/ # BERT fine-tuned on WELFake dataset (fallback)
 ├── frontend/
-│   ├── src/
-│   │   ├── App.jsx           # Router + PageWrapper (Framer Motion)
-│   │   ├── index.css         # Global styles, glass-card, glass-card-dim
-│   │   ├── main.jsx
-│   │   ├── api/index.js      # Axios instance + interceptors
-│   │   ├── context/
-│   │   │   └── AuthContext.jsx
-│   │   ├── motion/
-│   │   │   ├── config.js     # pageTransition variants
-│   │   │   ├── reveal.js     # Scroll-reveal helpers
-│   │   │   ├── scroll.js     # GSAP ScrollTrigger utilities
-│   │   │   └── useReducedMotion.js
-│   │   └── pages/
-│   │       ├── Home.jsx      # Landing page, GSAP slow-scroll steps
-│   │       ├── Dashboard.jsx # Analysis UI, history, charts
-│   │       ├── Login.jsx     # Auth page, orbit-ring SVG background
-│   │       └── Register.jsx  # Auth page, hexagon ripple SVG bg
-│   ├── index.html
-│   ├── vite.config.js
-│   ├── tailwind.config.js
-│   └── package.json
-├── logs/                     # Auto-created on first run
-│   └── app.log               # Rotating log (10 MB, 5 backups)
-├── Data/
-│   └── WELFake_Dataset.csv
+│   └── src/
+│       ├── App.jsx
+│       ├── api/index.js
+│       ├── context/AuthContext.jsx
+│       ├── motion/           # GSAP + Framer Motion helpers
+│       └── pages/            # Home, Dashboard, Login, Register
+├── logs/                     # Auto-created — rotating app.log
+├── Data/WELFake_Dataset.csv
 ├── Notebook/
 │   ├── bert_finetune_notebook.ipynb
 │   └── wel-fakebert-finetune-notebook.ipynb
-├── run_api.py                # Uvicorn entry point
-├── pyproject.toml            # Python dependencies (UV)
+├── run_api.py
+├── pyproject.toml
 └── README.md
 ```
 
@@ -163,63 +161,61 @@ FinalYearProject/
 
 ## 🚀 Production Deployment
 
-This project is deployed using **100% free, open-source tools**:
-
 ```
 Browser
   └──▶  Vercel (React/Vite frontend)
-              └── VITE_API_URL ──▶  Hugging Face Spaces (FastAPI + BERT)
+              └── VITE_API_URL ──▶  Hugging Face Spaces (FastAPI + BERT + LLM)
                                           └── MONGODB_URL ──▶  MongoDB Atlas
 ```
 
-| Layer | Platform | Plan | Notes |
-|-------|----------|------|-------|
-| Frontend | [Vercel](https://vercel.com) | Free | Auto-deploys on `git push` to `main` |
-| Backend | [Hugging Face Spaces](https://huggingface.co/spaces) | CPU Basic (Free) | 2 vCPU · 16 GB RAM — enough for PyTorch BERT |
-| Database | [MongoDB Atlas](https://cloud.mongodb.com) | M0 Free | 512 MB persistent storage |
+| Layer | Platform | Plan |
+|-------|----------|------|
+| Frontend | [Vercel](https://vercel.com) | Free |
+| Backend | [Hugging Face Spaces](https://huggingface.co/spaces) | CPU Basic (Free) |
+| Database | [MongoDB Atlas](https://cloud.mongodb.com) | M0 Free |
 
 ### Deploy your own copy
 
 **Backend (HF Spaces)**
-1. Fork this repo
-2. Create a new Space at huggingface.co → SDK: **Docker**
-3. Push the code: `git clone https://huggingface.co/spaces/YOUR_HF_USER/your-space` then copy `app/`, `enhanced_bert_*/`, `run_api.py`, `pyproject.toml`, `Dockerfile.huggingface` (rename to `Dockerfile`)
-4. Add secrets in Space Settings: `MONGODB_URL`, `SECRET_KEY`, `AI_API_KEY`, `MISTRAL_API_KEY`, `ALLOWED_ORIGINS`
+1. Fork this repo and create a new Space (SDK: **Docker**)
+2. Copy `app/`, `enhanced_bert_*/`, `run_api.py`, `Dockerfile.huggingface` (rename to `Dockerfile`)
+3. Add secrets in Space Settings:
+
+| Secret | Description |
+|--------|-------------|
+| `MONGODB_URL` | MongoDB Atlas connection string |
+| `SECRET_KEY` | JWT signing secret |
+| `AI_API_KEY` | LLM API key for the primary fact-checker |
+| `MISTRAL_API_KEY` | Mistral API key (for image OCR) |
+| `ALLOWED_ORIGINS` | Comma-separated frontend URLs |
 
 **Frontend (Vercel)**
-1. Import your GitHub repo in Vercel
-2. Set **Root Directory** → `frontend`
-3. Add env var: `VITE_API_URL=https://YOUR_HF_USER-your-space.hf.space/api`
-4. Deploy
+1. Import your GitHub repo → set **Root Directory** to `frontend`
+2. Add env var: `VITE_API_URL=https://YOUR_HF_USER-your-space.hf.space/api`
 
 ---
 
 ## 💻 Local Development
 
 ### Prerequisites
-
-- Python 3.9+
-- Node.js 18+
+- Python 3.11+, Node.js 18+
 - [UV](https://github.com/astral-sh/uv) package manager
-- MongoDB Atlas account (free tier is sufficient)
+- MongoDB Atlas account
+- LLM API key (for the primary fact-checker)
+- Mistral API key (free at [mistral.ai](https://mistral.ai)) — for image OCR
 
 ### 1. Install Backend
 
 ```bash
-# Clone the repository
 git clone <your-repo-url>
 cd FinalYearProject
-
-# Install UV if you haven't already
 pip install uv
-
-# Install all Python dependencies
-uv pip install -e .
+uv sync
 ```
 
 ### 2. Configure Environment
 
-Create a `.env` file in the project root:
+Create `.env` in the project root:
 
 ```env
 # MongoDB Atlas
@@ -227,20 +223,21 @@ MONGODB_URL=mongodb+srv://username:password@cluster.mongodb.net/?retryWrites=tru
 DATABASE_NAME=fake_news_detector
 
 # JWT
-JWT_SECRET_KEY=your-super-secret-jwt-key-change-in-production
+SECRET_KEY=your-super-secret-jwt-key-change-in-production
 ACCESS_TOKEN_EXPIRE_MINUTES=1440
 
-# Model
-MODEL_PATH=./enhanced_bert_liar_model
-MAX_LENGTH=512
+# LLM API key (primary fact-checker)
+AI_API_KEY=your_api_key_here
 
-# News Validation APIs (optional — Google News RSS works without a key)
+# Mistral AI (image OCR)
+MISTRAL_API_KEY=your_mistral_api_key_here
+
+# News Validation (optional — Google News RSS is free)
 NEWSAPI_KEY=your_newsapi_key
 SERPAPI_KEY=your_serpapi_key
 
-# Server
-API_HOST=0.0.0.0
-API_PORT=8000
+# CORS
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
 ```
 
 ### 3. Start the Backend
@@ -249,8 +246,8 @@ API_PORT=8000
 python run_api.py
 ```
 
-API available at **http://localhost:8000**  
-Swagger docs at **http://localhost:8000/docs**
+- API: **http://localhost:8000**
+- Swagger: **http://localhost:8000/docs**
 
 ### 4. Start the Frontend
 
@@ -260,7 +257,7 @@ npm install
 npm run dev
 ```
 
-Frontend available at **http://localhost:5173**
+Frontend: **http://localhost:5173**
 
 ---
 
@@ -268,20 +265,23 @@ Frontend available at **http://localhost:5173**
 
 ### Authentication
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/auth/register` | Create a new user account |
-| `POST` | `/api/auth/login` | Login and receive a JWT token |
-| `GET` | `/api/auth/me` | Get current authenticated user |
-| `GET` | `/api/auth/history` | Retrieve prediction history |
-| `POST` | `/api/auth/logout` | Logout (client-side token removal) |
+| Method | Endpoint | Rate Limit | Description |
+|--------|----------|------------|-------------|
+| `POST` | `/api/auth/register` | 3/min | Create a new user account |
+| `POST` | `/api/auth/login` | 5/min | Login and receive a JWT token |
+| `GET` | `/api/auth/me` | — | Get current authenticated user |
+| `GET` | `/api/auth/history` | — | Retrieve prediction history |
+| `GET` | `/api/auth/stats` | — | Get total/real/fake counts |
+| `POST` | `/api/auth/logout` | — | Logout |
 
 ### Predictions (JWT required)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/predict` | Analyse a single news text |
-| `POST` | `/api/batch-predict` | Analyse multiple texts in one call |
+| Method | Endpoint | Rate Limit | Description |
+|--------|----------|------------|-------------|
+| `POST` | `/api/predict` | 30/min | Analyse a single news headline |
+| `POST` | `/api/batch-predict` | 5/min | Analyse up to 10 texts in one call |
+| `POST` | `/api/image-predict` | 10/min | OCR + analyse a news screenshot |
+| `POST` | `/api/extract-image-text` | 10/min | OCR only (no prediction) |
 
 ### Example — Single Prediction
 
@@ -290,26 +290,20 @@ Frontend available at **http://localhost:5173**
 curl -X POST http://localhost:8000/api/predict \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"text": "Scientists discover new planet in solar system"}'
+  -d '{"title": "Scientists discover new planet in solar system"}'
 ```
 
 **Response:**
 ```json
 {
   "text": "Scientists discover new planet in solar system",
-  "prediction": "fake",
-  "confidence": 0.87,
-  "probabilities": {
-    "real": 0.13,
-    "fake": 0.87
-  },
-  "is_fake": true,
-  "news_validation": {
-    "verification_status": "not_found",
-    "total_results": 0,
-    "articles": []
-  },
-  "news_insight": "⚠ No corroborating news sources found."
+  "prediction": "unverified",
+  "confidence": 0.62,
+  "probabilities": { "real": 0.62, "fake": 0.38 },
+  "is_fake": false,
+  "prediction_source": "llm_primary",
+  "context_articles_used": 2,
+  "news_insight": "ℹ️ Limited related news coverage found."
 }
 ```
 
@@ -322,13 +316,14 @@ curl -X POST http://localhost:8000/api/predict \
 |---------|---------|
 | FastAPI | Async REST API framework |
 | Uvicorn | ASGI server |
-| PyTorch | BERT model inference |
-| Transformers (HuggingFace) | Tokeniser + model architecture |
+| **google-genai** | **LLM SDK — primary fact-checker** |
+| **mistralai** | **Mistral OCR — image text extraction** |
+| **slowapi** | **Per-IP API rate limiting** |
+| PyTorch | BERT model inference (fallback) |
+| Transformers (HuggingFace) | Tokeniser + BERT model architecture |
 | Motor | Async MongoDB driver |
 | python-jose | JWT token generation & validation |
 | passlib[bcrypt] | Password hashing |
-| python-multipart | File / form upload support |
-| python-dotenv | `.env` config loading |
 | requests + beautifulsoup4 | News RSS scraping |
 | newsapi-python | NewsAPI client |
 | serpapi | SerpAPI client |
@@ -342,108 +337,43 @@ curl -X POST http://localhost:8000/api/predict \
 | GSAP + ScrollTrigger | Scroll-driven animations |
 | Framer Motion | Page transition system |
 | Recharts | Pie chart visualisation |
-| Lucide React | Icon set |
 | Axios | HTTP client with interceptors |
 
-### Infrastructure
-| Service | Purpose |
-|---------|---------|
-| MongoDB Atlas | Cloud database (users + predictions) |
-| Python logging (RotatingFileHandler) | Structured backend logs → `logs/app.log` |
-
 ---
 
-## 🎨 Frontend Highlights
+## 🤖 Classification Details
 
-### Animated Backgrounds
-- **Home** — Fixed star-field (21 particle nodes, 5 diagonal lines) that persists across scroll
-- **Login** — Two large orbit rings (r = 320, r = 390) with animated orbiting nodes and a purple scan line
-- **Register** — Corner hexagons and three concentric ripple rings expanding from center
-- **Dashboard** — Orbit ring system matching Login, with corner/edge glow nodes
+### LLM Fact-Checker (Primary)
+| Property | Value |
+|----------|-------|
+| Input | User claim + live news articles (headline, summary, date, URL) |
+| Output labels | `REAL` / `FAKE` / `UNVERIFIED` |
+| Fallback chain | Multiple model tiers tried automatically on quota errors |
+| Context | Receives live Google News articles before deciding |
 
-### Scroll Animations (Home page)
-GSAP `ScrollTrigger` drives the "How It Works" steps section with individual triggers per step and `scrub: 3` on the connecting progress line, creating a deliberate slow-scroll narrative feel.
+**UNVERIFIED** is returned when the LLM cannot confirm or deny the claim from available evidence (e.g. very recent events not yet widely reported). It maps to `is_fake: false` with capped confidence (≤ 68%).
 
-### Page Transitions
-Framer Motion `pageTransition` variant applies a blur + scale (0.98 → 1) enter animation and blur + scale (1 → 0.99) exit, producing a cinematic feel between routes.
+**FAKE** is only returned when retrieved articles **directly contradict** the specific factual assertion — not merely because the claim is surprising or uses dramatic language.
 
-### Glassmorphism Cards
-Two card classes are available:
-- `glass-card` — Standard surface (60% / 40% opacity)
-- `glass-card-dim` — Subtle surface for content-heavy panels (25% / 15% opacity)
-
----
-
-## 🤖 Model Details
-
+### BERT (Fallback)
 | Property | Value |
 |----------|-------|
 | Architecture | BERT (bert-base-uncased) |
-| Training dataset | LIAR dataset (binary: real / fake) |
+| Training | LIAR dataset (binarised) |
 | Max token length | 512 |
-| Accuracy | 95.2% |
-| Precision | 94.8% |
-| Recall | 95.5% |
-| F1 Score | 95.1% |
-
-An alternative model fine-tuned on the **WELFake dataset** is also included under `enhanced_bert_welfake_model/`.
-
----
-
-## 📊 Logging
-
-All backend activity is written to `logs/app.log` via Python's `RotatingFileHandler`:
-
-- **Max file size**: 10 MB
-- **Backups**: 5 rotated files (`app.log.1` … `app.log.5`)
-- **What is logged**: HTTP request/response pairs, prediction results (user, label, confidence, source), auth events (register, login, logout, failures), startup/shutdown lifecycle
+| Accuracy | ~95% |
+| When used | Only when all Gemini models fail |
 
 ---
 
 ## 🔒 Security
 
 - JWT tokens with configurable expiry (default 24 hours)
-- Bcrypt password hashing (passlib)
-- CORS middleware (configurable origins)
+- Bcrypt password hashing
+- Per-IP rate limiting on all public endpoints
+- CORS middleware (configurable via `ALLOWED_ORIGINS`)
 - Pydantic input validation on all endpoints
-- Environment-variable-driven secrets (no hardcoded credentials)
-
----
-
-## 🌐 Deployment
-
-### Option 1 — Railway (Recommended)
-
-1. Push code to GitHub
-2. New Project on [Railway](https://railway.app) → Deploy from GitHub
-3. Add a MongoDB plugin or point `MONGODB_URL` at Atlas
-4. Set all required environment variables in the Railway dashboard
-5. Deploy — Railway auto-detects the `run_api.py` start command
-
-### Option 2 — Render + MongoDB Atlas
-
-**Backend (Render Web Service):**
-- Build Command: `pip install uv && uv pip install -e .`
-- Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-
-**Frontend (Render Static Site):**
-- Build Command: `cd frontend && npm install && npm run build`
-- Publish Directory: `frontend/dist`
-
-### Option 3 — Vercel (frontend) + Railway (backend)
-
-Add a `VITE_API_URL` environment variable in Vercel pointing to the Railway backend URL.
-
-### Option 4 — Docker
-
-```dockerfile
-FROM python:3.11-slim
-WORKDIR /app
-COPY . .
-RUN pip install uv && uv pip install -e .
-EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
+- Environment-variable-driven secrets
 
 ---
 
@@ -453,51 +383,35 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 |----------|----------|-------------|
 | `MONGODB_URL` | ✅ | MongoDB Atlas connection string |
 | `DATABASE_NAME` | ✅ | Target database name |
-| `JWT_SECRET_KEY` | ✅ | Secret used to sign JWT tokens |
+| `SECRET_KEY` | ✅ | Secret used to sign JWT tokens |
+| `AI_API_KEY` | ✅ | LLM API key (primary fact-checker) |
+| `MISTRAL_API_KEY` | ✅ | Mistral API key (image OCR) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | ❌ | Token TTL (default: 1440) |
-| `MODEL_PATH` | ❌ | Path to BERT model dir (default: `./enhanced_bert_liar_model`) |
-| `MAX_LENGTH` | ❌ | Tokeniser max length (default: 512) |
-| `NEWSAPI_KEY` | ❌ | [NewsAPI](https://newsapi.org) key |
-| `SERPAPI_KEY` | ❌ | [SerpAPI](https://serpapi.com) key |
-| `API_HOST` | ❌ | Bind address (default: `0.0.0.0`) |
-| `API_PORT` | ❌ | Port (default: `8000`) |
+| `NEWSAPI_KEY` | ❌ | NewsAPI key |
+| `SERPAPI_KEY` | ❌ | SerpAPI key |
+| `ALLOWED_ORIGINS` | ❌ | Comma-separated CORS origins |
+| `ENABLE_AI_CHECK` | ❌ | Set `false` to force BERT-only mode |
 
 ---
 
-## � Datasets
-
-TruthLens was trained and evaluated on two public fake-news benchmark datasets:
+## 📂 Datasets
 
 ### LIAR Dataset
 | Property | Detail |
 |----------|--------|
-| **Source** | [William Yang Wang, 2017](https://aclanthology.org/P17-2067/) — UCSB |
+| **Source** | [W. Wang, 2017](https://aclanthology.org/P17-2067/) — UCSB |
 | **Size** | ~12,800 labelled statements |
-| **Labels** | 6 fine-grained classes (pants-fire, false, barely-true, half-true, mostly-true, true) → binarised to **fake / real** |
-| **Domain** | Political statements from PolitiFact.com |
-| **Use in project** | Fine-tuned `enhanced_bert_liar_model/` — specialised in detecting political misinformation |
-| **License** | Public domain / research use |
+| **Labels** | 6-class → binarised to fake / real |
+| **Domain** | Political statements (PolitiFact) |
+| **License** | Public domain |
 
 ### WELFake Dataset
 | Property | Detail |
 |----------|--------|
 | **Source** | [Verma et al., 2021](https://doi.org/10.1109/TVCG.2021.3071339) |
-| **Size** | 72,134 news articles (35,028 fake · 37,106 real) |
-| **Labels** | Binary — **0 = Fake**, **1 = Real** |
-| **Domain** | Mixed sources: Kaggle, McIntire, Reuters, BuzzFeed Political |
-| **Use in project** | Fine-tuned `enhanced_bert_welfake_model/` — broader general-news coverage |
+| **Size** | 72,134 articles (35,028 fake · 37,106 real) |
+| **Domain** | Mixed: Kaggle, Reuters, BuzzFeed |
 | **License** | CC BY 4.0 |
-
-> The raw WELFake CSV (`Data/WELFake_Dataset.csv`) and the fine-tuning notebooks are in `Notebook/` for full reproducibility.
-
----
-
-## �📝 API Documentation
-
-With the backend running, interactive docs are available at:
-
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
 
 ---
 
@@ -505,8 +419,8 @@ With the backend running, interactive docs are available at:
 
 | Notebook | Description |
 |----------|-------------|
-| `Notebook/bert_finetune_notebook.ipynb` | BERT fine-tuning on the LIAR dataset |
-| `Notebook/wel-fakebert-finetune-notebook.ipynb` | BERT fine-tuning on the WELFake dataset |
+| `Notebook/bert_finetune_notebook.ipynb` | BERT fine-tuning on LIAR dataset |
+| `Notebook/wel-fakebert-finetune-notebook.ipynb` | BERT fine-tuning on WELFake dataset |
 
 ---
 
@@ -514,15 +428,15 @@ With the backend running, interactive docs are available at:
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Commit your changes: `git commit -m "feat: add my feature"`
-4. Push the branch: `git push origin feature/my-feature`
+3. Commit: `git commit -m "feat: add my feature"`
+4. Push: `git push origin feature/my-feature`
 5. Open a Pull Request
 
 ---
 
 ## 📄 License
 
-This project is licensed under the **MIT License**.
+MIT License
 
 ---
 
@@ -531,6 +445,8 @@ This project is licensed under the **MIT License**.
 - [LIAR Dataset](https://www.cs.ucsb.edu/~william/data/liar_dataset.zip) — W. Wang, 2017
 - [WELFake Dataset](https://zenodo.org/record/4561253) — Verma et al., 2021
 - [Hugging Face Transformers](https://huggingface.co/) — BERT tokeniser and model utilities
+- Primary LLM fact-checker — contextual claim verification against live news
+- [Mistral AI](https://mistral.ai/) — Image OCR
 
 ---
 

@@ -1,6 +1,20 @@
 ﻿# 🛡️ TruthLens — BERT-Based Fake News Detector
 
+
+
+![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)
+![React](https://img.shields.io/badge/React-18.2+-61DAFB.svg)
+![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248.svg)
+![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.3+-38B2AC.svg)
+![HuggingFace](https://img.shields.io/badge/HuggingFace-Spaces-FFD21E.svg)
+![Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black.svg)
+![License](https://img.shields.io/badge/License-MIT-yellow.svg)
+
+---
+
 A full-stack web application that detects fake news using a **large language model (LLM)** as the primary classifier, backed by a fine-tuned BERT transformer model, real-time Google News RSS validation, image OCR analysis, API rate limiting, and a fully animated React interface with MongoDB-backed user authentication.
+
 
 ## 🌐 Live Demo
 
@@ -14,18 +28,7 @@ A full-stack web application that detects fake news using a **large language mod
 > The frontend is deployed on **Vercel** with global CDN.
 > The database is **MongoDB Atlas** (M0 free cluster).
 
----
 
-![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)
-![React](https://img.shields.io/badge/React-18.2+-61DAFB.svg)
-![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248.svg)
-![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.3+-38B2AC.svg)
-![HuggingFace](https://img.shields.io/badge/HuggingFace-Spaces-FFD21E.svg)
-![Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black.svg)
-![License](https://img.shields.io/badge/License-MIT-yellow.svg)
-
----
 
 ## ✨ Features
 

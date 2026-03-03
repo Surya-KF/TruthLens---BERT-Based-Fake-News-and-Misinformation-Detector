@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from datetime import datetime
 from app.schemas.prediction import PredictionRequest, PredictionResponse, ImagePredictionRequest, ImageExtractionResponse
 from app.models.bert_model import get_model, predict_fake_news
@@ -7,13 +7,16 @@ from app.utils.news_validator import news_validator
 from app.utils.image_ocr import image_ocr
 from app.auth import get_current_user
 from app.database import get_predictions_collection
+from app.limiter import limiter
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 router = APIRouter()
 
 @router.post("/predict", response_model=PredictionResponse)
+@limiter.limit("30/minute")
 async def predict(
+    http_request: Request,
     request: PredictionRequest,
     current_user: dict = Depends(get_current_user)
 ):
@@ -116,7 +119,9 @@ async def predict(
         raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
 
 @router.post("/batch-predict")
+@limiter.limit("5/minute")
 async def batch_predict(
+    http_request: Request,
     texts: list[str],
     current_user: dict = Depends(get_current_user)
 ):
@@ -132,6 +137,8 @@ async def batch_predict(
         List of predictions
     """
     try:
+        if len(texts) > 10:
+            raise HTTPException(status_code=422, detail="Max 10 items per batch request.")
         user_id = str(current_user["_id"])
         logger.info("[batch-predict] user=%s | count=%d", user_id, len(texts))
         model, tokenizer, checkpoint = get_model()
@@ -192,7 +199,9 @@ async def batch_predict(
 
 
 @router.post("/image-predict")
+@limiter.limit("10/minute")
 async def image_predict(
+    http_request: Request,
     request: ImagePredictionRequest,
     current_user: dict = Depends(get_current_user)
 ):
@@ -308,7 +317,9 @@ async def image_predict(
 
 
 @router.post("/extract-image-text", response_model=ImageExtractionResponse)
+@limiter.limit("10/minute")
 async def extract_image_text(
+    http_request: Request,
     request: ImagePredictionRequest,
     current_user: dict = Depends(get_current_user)
 ):

@@ -3,8 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import os
 import time
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from app.api import routes, auth_routes
 from app.database import connect_to_mongodb, close_mongodb_connection
+from app.limiter import limiter
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -28,6 +31,10 @@ app = FastAPI(
     version="2.0.0",
     lifespan=lifespan
 )
+
+# Attach rate limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Configure CORS – reads ALLOWED_ORIGINS from env (comma-separated) for production
 _raw_origins = os.getenv(

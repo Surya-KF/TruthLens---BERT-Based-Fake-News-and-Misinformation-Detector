@@ -33,9 +33,7 @@ A full-stack web application that detects fake news using a **large language mod
 ## ✨ Features
 
 ### Core Detection Pipeline
-- **LLM Fact-Checker (Primary)** — A large language model is the main classifier. It receives the claim + live news context and returns `REAL`, `FAKE`, or `UNVERIFIED` with confidence and full reasoning.
-- **Automatic model fallback** — Multiple model tiers are tried in order; the system automatically falls back on quota or availability errors.
-- **Fine-tuned BERT (Fallback only)** — PyTorch BERT model (~95% accuracy) activates only when the LLM is unavailable.
+- **Fine-tuned BERT (Primary)** — PyTorch BERT model (~95% accuracy) activates only when the LLM is unavailable.
 - **Three-label output** — `REAL` / `FAKE` / `UNVERIFIED`. The LLM outputs UNVERIFIED when evidence is inconclusive, avoiding over-flagging real recent news as fake.
 - **Confidence Scoring** — Per-prediction probability distribution visualised as a live pie chart.
 - **Batch Analysis** — Submit up to 10 news texts in one request.

@@ -33,7 +33,7 @@ A full-stack web application that detects fake news using a **large language mod
 ## ✨ Features
 
 ### Core Detection Pipeline
-- **Fine-tuned BERT (Primary)** — PyTorch BERT model (~95% accuracy) activates only when the LLM is unavailable.
+- **Fine-tuned BERT (Primary)** — PyTorch BERT model (~95% accuracy) 
 - **Three-label output** — `REAL` / `FAKE` / `UNVERIFIED`. The LLM outputs UNVERIFIED when evidence is inconclusive, avoiding over-flagging real recent news as fake.
 - **Confidence Scoring** — Per-prediction probability distribution visualised as a live pie chart.
 - **Batch Analysis** — Submit up to 10 news texts in one request.

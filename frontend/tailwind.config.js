@@ -11,19 +11,19 @@ export default {
       },
       colors: {
         pro: {
-          bg:      '#000000',
-          surface: '#121212',
-          card:    '#1c1c1e',
-          text:    '#f5f5f7',
-          sub:     '#86868b',
-          blue:    '#0071e3',
-          border:  'rgba(255,255,255,0.1)',
+          bg:      'rgb(var(--color-bg) / <alpha-value>)',
+          surface: 'rgb(var(--color-surface) / <alpha-value>)',
+          card:    'rgb(var(--color-card) / <alpha-value>)',
+          text:    'rgb(var(--color-text) / <alpha-value>)',
+          sub:     'rgb(var(--color-sub) / <alpha-value>)',
+          blue:    'rgb(var(--color-accent1) / <alpha-value>)',
+          border:  'rgb(var(--color-border-rgb) / 0.1)',
         },
         tech: {
-          cyan:    '#2997ff',
-          violet:  '#a259ff',
-          lime:    '#30d158',
-          rose:    '#ff375f',
+          cyan:    'rgb(var(--color-accent2) / <alpha-value>)',
+          violet:  'rgb(var(--color-accent3) / <alpha-value>)',
+          lime:    'rgb(var(--color-success) / <alpha-value>)',
+          rose:    'rgb(var(--color-error) / <alpha-value>)',
         }
       },
       borderRadius: {

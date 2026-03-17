@@ -2,6 +2,7 @@ import { useRef, useMemo, useState, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Float, Sphere, MeshDistortMaterial, Points, PointMaterial } from '@react-three/drei';
 import * as THREE from 'three';
+import { useTheme } from '../context/ThemeContext';
 
 const DataRings = () => {
   const groupRef = useRef();
@@ -63,11 +64,9 @@ const NeuralCore = () => {
     const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
     const scroll = scrollHeight > 0 ? window.scrollY / scrollHeight : 0;
     
-    // Smooth interaction
     meshRef.current.rotation.x = THREE.MathUtils.lerp(meshRef.current.rotation.x, mouse.y * 0.2, 0.1);
     meshRef.current.rotation.y = THREE.MathUtils.lerp(meshRef.current.rotation.y, mouse.x * 0.2 + time * 0.2, 0.1);
     
-    // Scroll logic
     if (scroll < 0.2) {
        meshRef.current.position.set(0, 0, 0);
        meshRef.current.scale.setScalar(1 + scroll);
@@ -81,7 +80,6 @@ const NeuralCore = () => {
   return (
     <group ref={meshRef}>
       <Float speed={2} rotationIntensity={1} floatIntensity={1}>
-        {/* Core Pro Sphere */}
         <Sphere args={[1, 64, 64]}>
           <MeshDistortMaterial
             color="#121212"
@@ -95,7 +93,6 @@ const NeuralCore = () => {
           />
         </Sphere>
         
-        {/* Outer Glow Shell (Native workaround for Bloom) */}
         <Sphere args={[1.05, 64, 64]}>
           <meshBasicMaterial color="#0071e3" transparent opacity={0.1} side={THREE.BackSide} />
         </Sphere>
@@ -108,20 +105,25 @@ const NeuralCore = () => {
 
 const ThreeBackground = () => {
   const [mounted, setMounted] = useState(false);
+  const { theme } = useTheme();
+  
   useEffect(() => setMounted(true), []);
 
   if (!mounted) return null;
 
+  // In light mode, hide the entire Three.js canvas so the CSS body gradient shows
+  if (theme === 'light') return null;
+
   return (
-    <div className="fixed inset-0 pointer-events-none bg-black" style={{ zIndex: 0 }}>
+    <div 
+      className="fixed inset-0 pointer-events-none" 
+      style={{ zIndex: 0 }}
+    >
       <Canvas
         camera={{ position: [0, 0, 5], fov: 45 }}
         gl={{ antialias: true, alpha: true }}
         dpr={[1, 2]}
       >
-        <color attach="background" args={['#000000']} />
-        <fog attach="fog" args={['#000000', 5, 20]} />
-        
         <ambientLight intensity={0.5} />
         <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={2} color="#ffffff" />
         <pointLight position={[-10, -10, -10]} intensity={1} color="#0071e3" />

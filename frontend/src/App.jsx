@@ -2,6 +2,8 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
+import ThemeToggle from './components/ThemeToggle';
 import { pageTransition } from './motion/config';
 
 // Route-level code splitting
@@ -87,6 +89,7 @@ function AppRoutes() {
           } />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        <ThemeToggle />
       </Suspense>
     </AnimatePresence>
   );
@@ -95,9 +98,11 @@ function AppRoutes() {
 function App() {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

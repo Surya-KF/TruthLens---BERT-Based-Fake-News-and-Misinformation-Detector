@@ -25,7 +25,7 @@ const Sidebar = ({ isCollapsed, toggleCollapse, isMobileOpen, closeMobile }) => 
     <motion.aside 
       className={`fixed inset-y-0 left-0 z-50 
         ${isCollapsed ? 'w-20' : 'w-64'} 
-        bg-black/80 backdrop-blur-3xl border-r border-pro-border 
+        bg-pro-bg/80 backdrop-blur-3xl border-r border-pro-border 
         flex flex-col p-5 transition-all duration-500 ease-in-out
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
     >

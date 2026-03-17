@@ -62,7 +62,7 @@ const ResultPanel = ({ result, analysisTime }) => {
                 />
                 <StatusIcon className={`w-16 h-16 ${statusColor}`} />
              </div>
-             <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-5 py-1.5 bg-black border border-pro-border rounded-full shadow-lg">
+             <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-5 py-1.5 bg-pro-bg border border-pro-border rounded-full shadow-lg">
                 <span className="text-[11px] font-bold text-pro-sub uppercase tracking-wider mr-2">CONFIDENCE:</span>
                 <span className={`text-sm font-black ${statusColor}`}>
                   {(result.confidence * 100).toFixed(1)}%

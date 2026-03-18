@@ -112,7 +112,7 @@ const NeuralMap = ({ active = false }) => {
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20">
          <div className="px-4 py-2 bg-obsidian/60 backdrop-blur-md border border-obsidian-border rounded-xl flex items-center gap-3">
             <div className={`w-2 h-2 rounded-full ${active ? 'bg-tech-cyan animate-pulse shadow-[0_0_8px_#00f5ff]' : 'bg-tech-violet shadow-[0_0_8px_#7000ff]'}`} />
-            <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">
+            <span className="text-[10px] font-black text-pro-text uppercase tracking-[0.2em]">
               {active ? 'Neural Core: Processing' : 'Neural Core: Standby'}
             </span>
          </div>

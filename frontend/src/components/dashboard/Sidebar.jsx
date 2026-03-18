@@ -41,7 +41,7 @@ const Sidebar = ({ isCollapsed, toggleCollapse, isMobileOpen, closeMobile }) => 
             <div className="absolute inset-0 bg-pro-blue/20 blur-xl rounded-xl" />
             <div className="relative w-12 h-12 bg-pro-surface border border-pro-border rounded-xl flex items-center justify-center overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-pro-blue/10 to-transparent" />
-              <Shield className="w-6 h-6 text-pro-blue group-hover:text-white transition-colors" />
+              <Shield className="w-6 h-6 text-pro-blue group-hover:text-pro-text transition-colors" />
               <motion.div 
                 animate={{ y: [0, 48, 0] }}
                 transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
@@ -53,7 +53,7 @@ const Sidebar = ({ isCollapsed, toggleCollapse, isMobileOpen, closeMobile }) => 
             <motion.h1 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="text-xl font-black text-white tracking-tightest uppercase italic"
+              className="text-xl font-black text-pro-text tracking-tightest uppercase italic"
             >
               Truth<span className="text-pro-blue">Lens</span>
             </motion.h1>
@@ -71,8 +71,8 @@ const Sidebar = ({ isCollapsed, toggleCollapse, isMobileOpen, closeMobile }) => 
               to={item.path}
               className={`w-full flex items-center gap-4 p-3.5 rounded-xl transition-all relative group ${
                 isActive 
-                  ? 'bg-pro-blue/10 text-white' 
-                  : 'text-pro-sub hover:text-white hover:bg-white/5'
+                  ? 'bg-pro-blue/10 text-pro-text' 
+                  : 'text-pro-sub hover:text-pro-text hover:bg-white/5'
               } ${isCollapsed ? 'justify-center' : ''}`}
             >
               {isActive && (
@@ -91,7 +91,7 @@ const Sidebar = ({ isCollapsed, toggleCollapse, isMobileOpen, closeMobile }) => 
       {/* Collapse Toggle - Desktop Only */}
       <button 
         onClick={toggleCollapse}
-        className="hidden lg:flex items-center gap-4 p-3.5 rounded-xl text-pro-sub hover:text-white hover:bg-white/5 mb-4"
+        className="hidden lg:flex items-center gap-4 p-3.5 rounded-xl text-pro-sub hover:text-pro-text hover:bg-white/5 mb-4"
       >
         {isCollapsed ? <ChevronRight className="w-6 h-6 mx-auto" /> : (
           <>
@@ -110,7 +110,7 @@ const Sidebar = ({ isCollapsed, toggleCollapse, isMobileOpen, closeMobile }) => 
             </div>
             {!isCollapsed && (
               <div className="min-w-0">
-                <p className="text-xs font-black text-white truncate">{user?.username || 'Agent'}</p>
+                <p className="text-xs font-black text-pro-text truncate">{user?.username || 'Agent'}</p>
                 <p className="text-[9px] font-bold text-pro-sub uppercase flex items-center gap-1">
                   <Cpu className="w-2 h-2" /> Online
                 </p>

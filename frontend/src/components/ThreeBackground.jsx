@@ -56,13 +56,22 @@ const QuantumParticles = ({ count = 1500 }) => {
 
 const NeuralCore = () => {
   const meshRef = useRef();
+  const scrollRef = useRef(0);
   const { mouse } = useThree();
   
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+      scrollRef.current = scrollHeight > 0 ? window.scrollY / scrollHeight : 0;
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   useFrame((state) => {
     if (!meshRef.current) return;
     const time = state.clock.getElapsedTime();
-    const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
-    const scroll = scrollHeight > 0 ? window.scrollY / scrollHeight : 0;
+    const scroll = scrollRef.current;
     
     meshRef.current.rotation.x = THREE.MathUtils.lerp(meshRef.current.rotation.x, mouse.y * 0.2, 0.1);
     meshRef.current.rotation.y = THREE.MathUtils.lerp(meshRef.current.rotation.y, mouse.x * 0.2 + time * 0.2, 0.1);

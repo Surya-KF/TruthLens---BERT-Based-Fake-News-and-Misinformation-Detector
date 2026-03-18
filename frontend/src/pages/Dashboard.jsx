@@ -218,10 +218,10 @@ const Dashboard = () => {
                 <p className="text-pro-sub text-[10px] sm:text-xs font-bold uppercase tracking-widest mt-1 sm:mt-2">Neural Workspace</p>
               </div>
               <div className="hidden md:flex bg-pro-surface p-1 rounded-2xl border border-pro-border">
-                <button onClick={() => setActiveTab('analysis')} className={`px-6 xl:px-8 py-2.5 xl:py-3 rounded-xl transition-all text-xs font-black uppercase tracking-widest flex items-center gap-2 ${activeTab === 'analysis' ? 'bg-pro-text text-pro-bg shadow-lg shadow-white/10' : 'text-pro-sub hover:text-pro-text'}`}>
+                <button onClick={() => setActiveTab('analysis')} className={`px-6 xl:px-8 py-2.5 xl:py-3 rounded-xl transition-all text-xs font-black uppercase tracking-widest flex items-center gap-2 ${activeTab === 'analysis' ? 'bg-pro-text text-pro-bg shadow-lg shadow-pro-text/5' : 'text-pro-sub hover:text-pro-text'}`}>
                   <Scan className="w-4 h-4" /> Scan
                 </button>
-                <button onClick={() => setActiveTab('history')} className={`px-6 xl:px-8 py-2.5 xl:py-3 rounded-xl transition-all text-xs font-black uppercase tracking-widest flex items-center gap-2 ${activeTab === 'history' ? 'bg-pro-text text-pro-bg shadow-lg shadow-white/10' : 'text-pro-sub hover:text-pro-text'}`}>
+                <button onClick={() => setActiveTab('history')} className={`px-6 xl:px-8 py-2.5 xl:py-3 rounded-xl transition-all text-xs font-black uppercase tracking-widest flex items-center gap-2 ${activeTab === 'history' ? 'bg-pro-text text-pro-bg shadow-lg shadow-pro-text/5' : 'text-pro-sub hover:text-pro-text'}`}>
                   <HistoryIcon className="w-4 h-4" /> Archive
                 </button>
               </div>
@@ -280,30 +280,30 @@ const Dashboard = () => {
                 <div className="max-w-4xl mx-auto w-full space-y-8 lg:space-y-12">
                   <motion.div className="pro-card p-6 md:p-10 xl:p-12 relative overflow-hidden">
                     {/* Input Mode Selector - Action Cards */}
-                    <div className="flex flex-col sm:flex-row items-stretch gap-4 md:gap-6 mb-8 sm:mb-12">
+                    <div className="flex flex-col sm:flex-row items-stretch gap-3 md:gap-4 mb-4 sm:mb-6">
                       <button 
                         onClick={() => handleModeSwitch('text')}
-                        className={`flex-1 p-4 md:p-6 rounded-2xl md:rounded-[2rem] border transition-all text-left flex items-center gap-4 md:gap-5 group active:scale-[0.98] ${inputMode === 'text' ? 'bg-pro-blue/10 border-pro-blue/40 shadow-lg' : 'bg-pro-surface border-pro-border hover:border-pro-sub/30'}`}
+                        className={`flex-1 p-3 md:p-4 rounded-xl md:rounded-2xl border transition-all text-left flex items-center gap-3 md:gap-4 group active:scale-[0.98] ${inputMode === 'text' ? 'bg-pro-blue/10 border-pro-blue/40 shadow-lg' : 'bg-pro-surface border-pro-border hover:border-pro-sub/30'}`}
                       >
-                        <div className={`w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center transition-colors ${inputMode === 'text' ? 'bg-pro-blue text-pro-text' : 'bg-pro-bg/40 text-pro-sub'}`}>
-                          <FileText className="w-5 h-5 md:w-7 md:h-7" />
+                        <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center transition-colors ${inputMode === 'text' ? 'bg-pro-blue text-pro-text' : 'bg-pro-bg/40 text-pro-sub'}`}>
+                          <FileText className="w-4 h-4 md:w-5 md:h-5" />
                         </div>
                         <div className="min-w-0">
-                          <h4 className={`font-black uppercase tracking-widest text-[10px] md:text-xs truncate ${inputMode === 'text' ? 'text-pro-blue' : 'text-pro-sub'}`}>Neural Text</h4>
-                          <p className="text-[9px] md:text-[10px] font-bold text-pro-sub opacity-60 truncate">Headline Scan</p>
+                          <h4 className={`font-black uppercase tracking-widest text-[9px] md:text-[10px] truncate ${inputMode === 'text' ? 'text-pro-blue' : 'text-pro-sub'}`}>Neural Text</h4>
+                          <p className="text-[8px] md:text-[9px] font-bold text-pro-sub opacity-60 truncate">Headline Scan</p>
                         </div>
                       </button>
 
                       <button 
                         onClick={() => handleModeSwitch('image')}
-                        className={`flex-1 p-4 md:p-6 rounded-2xl md:rounded-[2rem] border transition-all text-left flex items-center gap-4 md:gap-5 group active:scale-[0.98] ${inputMode === 'image' ? 'bg-pro-blue/10 border-pro-blue/40 shadow-lg' : 'bg-pro-surface border-pro-border hover:border-pro-sub/30'}`}
+                        className={`flex-1 p-3 md:p-4 rounded-xl md:rounded-2xl border transition-all text-left flex items-center gap-3 md:gap-4 group active:scale-[0.98] ${inputMode === 'image' ? 'bg-pro-blue/10 border-pro-blue/40 shadow-lg' : 'bg-pro-surface border-pro-border hover:border-pro-sub/30'}`}
                       >
-                        <div className={`w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center transition-colors ${inputMode === 'image' ? 'bg-pro-blue text-pro-text' : 'bg-pro-bg/40 text-pro-sub'}`}>
-                          <Scan className="w-5 h-5 md:w-7 md:h-7" />
+                        <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center transition-colors ${inputMode === 'image' ? 'bg-pro-blue text-pro-text' : 'bg-pro-bg/40 text-pro-sub'}`}>
+                          <Scan className="w-4 h-4 md:w-5 md:h-5" />
                         </div>
                         <div className="min-w-0">
-                          <h4 className={`font-black uppercase tracking-widest text-[10px] md:text-xs truncate ${inputMode === 'image' ? 'text-pro-blue' : 'text-pro-sub'}`}>Visual Evidence</h4>
-                          <p className="text-[9px] md:text-[10px] font-bold text-pro-sub opacity-60 truncate">OCR Extraction</p>
+                          <h4 className={`font-black uppercase tracking-widest text-[9px] md:text-[10px] truncate ${inputMode === 'image' ? 'text-pro-blue' : 'text-pro-sub'}`}>Visual Evidence</h4>
+                          <p className="text-[8px] md:text-[9px] font-bold text-pro-sub opacity-60 truncate">OCR Extraction</p>
                         </div>
                       </button>
                     </div>
@@ -311,23 +311,25 @@ const Dashboard = () => {
                     <AnimatePresence mode="wait">
                       {inputMode === 'text' ? (
                         <motion.div key="text-input" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="space-y-6 sm:space-y-8">
-                          <div className="space-y-2 sm:space-y-3">
-                            <label className="text-[9px] sm:text-[10px] font-black text-pro-sub uppercase tracking-[0.3em] ml-1">Protocol: Headline</label>
+                          <div className="space-y-2">
+                            <label className="text-[9px] font-black text-pro-sub uppercase tracking-[0.3em] ml-1">Protocol: Headline</label>
                             <input
                               type="text"
                               value={title}
                               onChange={(e) => setTitle(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && !loading && handleAnalyze()}
                               placeholder="Enter headline..."
-                              className="input-pro !bg-pro-bg/40 border-pro-border text-sm sm:text-lg font-medium shadow-inner !py-3 sm:!py-5"
+                              className="input-pro !bg-pro-bg/40 border-pro-border text-sm sm:text-base font-medium shadow-inner !py-2.5 sm:!py-3.5"
                             />
                           </div>
-                          <div className="space-y-2 sm:space-y-3">
-                            <label className="text-[9px] sm:text-[10px] font-black text-pro-sub uppercase tracking-[0.3em] ml-1">Neural Context</label>
+                          <div className="space-y-2">
+                            <label className="text-[9px] font-black text-pro-sub uppercase tracking-[0.3em] ml-1">Neural Context</label>
                             <textarea
                               value={articleText}
                               onChange={(e) => setArticleText(e.target.value)}
-                              placeholder="Paste content for deep scan..."
-                              className="input-pro h-32 sm:h-40 resize-none !bg-pro-bg/40 border-pro-border text-sm sm:text-base font-medium shadow-inner !py-3 sm:!py-5"
+                              onKeyDown={(e) => e.key === 'Enter' && e.ctrlKey && !loading && handleAnalyze()}
+                              placeholder="Paste content for deep scan (Ctrl+Enter to execute)..."
+                              className="input-pro h-24 sm:h-28 resize-none !bg-pro-bg/40 border-pro-border text-sm font-medium shadow-inner !py-2.5 sm:!py-3.5"
                             />
                           </div>
                         </motion.div>
@@ -362,7 +364,7 @@ const Dashboard = () => {
                         className={`w-full py-4 sm:py-6 rounded-xl sm:rounded-[1.5rem] font-black text-xs sm:text-sm uppercase tracking-[0.4em] transition-all flex items-center justify-center gap-3 sm:gap-4 ${
                           (loading || (inputMode === 'text' && title.length < 5) || (inputMode === 'image' && !selectedImage))
                             ? 'bg-pro-surface border border-pro-border text-pro-sub cursor-not-allowed opacity-40'
-                            : 'bg-pro-blue text-pro-text shadow-xl hover:bg-pro-blue/90 cursor-pointer active:scale-[0.99]'
+                            : 'bg-pro-blue text-white shadow-2xl shadow-pro-blue/30 hover:bg-pro-blue/90 cursor-pointer active:scale-[0.99]'
                         }`}
                       >
                         {loading ? <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> : <Terminal className="w-5 h-5 sm:w-6 sm:h-6" />}

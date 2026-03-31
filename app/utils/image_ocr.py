@@ -1,8 +1,18 @@
 import os
 import base64
+import requests
 from dotenv import load_dotenv
 from typing import Optional, Dict
-from mistralai import Mistral
+
+try:
+    # mistralai>=1.x
+    from mistralai import Mistral
+except Exception:
+    try:
+        # mistralai<1.x
+        from mistralai.client import MistralClient as Mistral
+    except Exception:
+        Mistral = None
 
 load_dotenv()
 
@@ -16,18 +26,26 @@ class ImageOCR:
         self.api_key = os.getenv('MISTRAL_API_KEY')
         self.enabled = False
         self.client = None
+        self.use_http_fallback = False
         self.model = "mistral-ocr-latest"  # Mistral's OCR model
-        
-        if self.api_key and self.api_key != 'your_api_key_here' and len(self.api_key) > 10:
+
+        if not (self.api_key and self.api_key != 'your_api_key_here' and len(self.api_key) > 10):
+            print("⚠ MISTRAL_API_KEY not configured, image OCR disabled")
+            return
+
+        if Mistral is not None:
             try:
                 self.client = Mistral(api_key=self.api_key)
                 self.enabled = True
-                print("✓ Image OCR (Mistral OCR) initialized successfully")
+                print("✓ Image OCR (Mistral OCR SDK) initialized successfully")
+                return
             except Exception as e:
-                print(f"⚠ Failed to initialize Mistral OCR: {e}")
-                self.enabled = False
-        else:
-            print("⚠ MISTRAL_API_KEY not configured, image OCR disabled")
+                print(f"⚠ Failed to initialize Mistral OCR SDK: {e}")
+
+        # SDK import/init can fail in some cloud images; use direct HTTP API fallback.
+        self.use_http_fallback = True
+        self.enabled = True
+        print("⚠ Mistral SDK unavailable, using direct HTTP OCR fallback")
     
     def extract_text_from_image(self, image_data: bytes, mime_type: str = "image/jpeg") -> Optional[Dict]:
         """
@@ -40,7 +58,7 @@ class ImageOCR:
         Returns:
             Dict with extracted title, text, and metadata
         """
-        if not self.enabled or not self.client:
+        if not self.enabled:
             return None
         
         try:
@@ -65,23 +83,18 @@ class ImageOCR:
         try:
             # Use Mistral OCR API with base64 image
             image_data_url = f"data:{mime_type};base64,{base64_image}"
-            
-            ocr_response = self.client.ocr.process(
-                model=self.model,
-                document={
-                    "type": "image_url",
-                    "image_url": image_data_url
-                }
-            )
-            
-            # Extract text from OCR response
-            extracted_text = ""
-            if ocr_response and hasattr(ocr_response, 'pages'):
-                for page in ocr_response.pages:
-                    if hasattr(page, 'markdown'):
-                        extracted_text += page.markdown + "\n"
-                    elif hasattr(page, 'text'):
-                        extracted_text += page.text + "\n"
+            if self.client and not self.use_http_fallback:
+                ocr_response = self.client.ocr.process(
+                    model=self.model,
+                    document={
+                        "type": "image_url",
+                        "image_url": image_data_url
+                    }
+                )
+            else:
+                ocr_response = self._call_mistral_ocr_http(image_data_url)
+
+            extracted_text = self._extract_text_from_ocr_response(ocr_response)
             
             extracted_text = extracted_text.strip()
             
@@ -107,6 +120,53 @@ class ImageOCR:
                 "error": str(e),
                 "extraction_success": False
             }
+
+    def _call_mistral_ocr_http(self, image_data_url: str) -> Dict:
+        """Fallback to Mistral OCR REST API if SDK is unavailable."""
+        if not self.api_key:
+            raise RuntimeError("MISTRAL_API_KEY is missing")
+
+        response = requests.post(
+            "https://api.mistral.ai/v1/ocr",
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": self.model,
+                "document": {
+                    "type": "image_url",
+                    "image_url": image_data_url,
+                },
+            },
+            timeout=60,
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def _extract_text_from_ocr_response(self, ocr_response) -> str:
+        """Extract page text from both SDK objects and HTTP JSON responses."""
+        extracted_text = ""
+
+        if isinstance(ocr_response, dict):
+            pages = ocr_response.get("pages", [])
+            for page in pages:
+                markdown = page.get("markdown") if isinstance(page, dict) else None
+                text = page.get("text") if isinstance(page, dict) else None
+                if markdown:
+                    extracted_text += markdown + "\n"
+                elif text:
+                    extracted_text += text + "\n"
+            return extracted_text.strip()
+
+        if ocr_response and hasattr(ocr_response, 'pages'):
+            for page in ocr_response.pages:
+                if hasattr(page, 'markdown') and page.markdown:
+                    extracted_text += page.markdown + "\n"
+                elif hasattr(page, 'text') and page.text:
+                    extracted_text += page.text + "\n"
+
+        return extracted_text.strip()
     
     def _parse_extracted_text(self, text: str) -> Dict:
         """Parse OCR extracted text to identify title, content, source, and date."""
@@ -190,7 +250,7 @@ class ImageOCR:
         Returns:
             Dict with extracted text
         """
-        if not self.enabled or not self.client:
+        if not self.enabled:
             return None
             
         try:

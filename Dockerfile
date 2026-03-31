@@ -37,6 +37,7 @@ RUN pip install --upgrade pip \
         "passlib[bcrypt]" \
         email-validator \
         mistralai \
+        slowapi \
         pytesseract
 
 # Copy application source code

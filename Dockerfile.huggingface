@@ -32,7 +32,8 @@ RUN pip install --upgrade pip \
         "python-jose[cryptography]" \
         "passlib[bcrypt]" \
         email-validator \
-        mistralai
+        mistralai \
+        slowapi
 
 COPY app/ ./app/
 COPY enhanced_bert_liar_model/ ./enhanced_bert_liar_model/

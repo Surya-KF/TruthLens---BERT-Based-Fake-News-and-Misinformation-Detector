@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Shield, Search, ArrowRight, Eye, BarChart3, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useRevealOnScroll } from '../motion/reveal';
@@ -45,9 +45,11 @@ const StatCounter = ({ value, suffix = '', prefix = '', label }) => {
 };
 
 const Home = () => {
+  const [heroTilt, setHeroTilt] = useState({ x: 0, y: 0 });
   const stepsSectionRef = useRef(null);
   const lineRef = useRef(null);
   const stepEls = useRef([]);
+  const heroRef = useRef(null);
   const prefersReduced = useReducedMotion();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
@@ -90,9 +92,25 @@ const Home = () => {
     { icon: BarChart3, title: 'Neural Metrics',        desc: 'Real-time probability distribution across established datasets.' },
     { icon: Lock,      title: 'Verified Logs',         desc: 'Cross-referenced against a global 1M+ article truth-index.' },
   ];
+  const confidenceCards = [
+    { title: 'Explainable verdicts', body: 'Evidence, entropy score, and reasoning trail surfaced for every scan.' },
+    { title: 'Source traceability', body: 'Linked validation articles with timestamps so you can audit in minutes.' },
+    { title: 'One-click handoff', body: 'Export PDF/CSV summaries or push to your case system via API.' },
+  ];
+
+  const handleHeroTilt = (e) => {
+    if (!heroRef.current) return;
+    const rect = heroRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    setHeroTilt({ x: -(y * 10), y: x * 10 });
+  };
+
+  const resetHeroTilt = () => setHeroTilt({ x: 0, y: 0 });
 
   return (
     <div className="relative min-h-screen text-pro-text selection:bg-pro-blue">
+      <a href="#main-content" className="skip-link">Skip to content</a>
       <ThreeBackground />
 
       {/* ── Header ──────────────────────────────────────── */}
@@ -138,7 +156,7 @@ const Home = () => {
         </div>
       </header>
 
-      <main className="relative z-10 pt-24 md:pt-0">
+      <main id="main-content" className="relative z-10 pt-24 md:pt-0">
         {/* ── Hero ────────────────────────────────────────── */}
         <section className="min-h-[90vh] md:min-h-screen flex flex-col justify-center px-4 md:px-8 pt-10 md:pt-0">
           <div className="max-w-6xl mx-auto w-full">
@@ -149,16 +167,37 @@ const Home = () => {
               </div>
             </Reveal>
 
-            <motion.h1
-              className="text-6xl sm:text-7xl md:text-8xl lg:text-[12rem] font-black leading-[0.95] md:leading-[0.85] tracking-tightest mb-8 md:mb-16 text-pro-text break-words"
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
+            <div
+              ref={heroRef}
+              className="relative hero-3d"
+              onMouseMove={handleHeroTilt}
+              onMouseLeave={resetHeroTilt}
             >
-              DEFEND<br />
-              <span className="stroke-text block md:inline-block mt-1 md:mt-0">THE.</span>
-              <span className="text-pro-blue block md:inline-block mt-1 md:mt-0">TRUTH.</span>
-            </motion.h1>
+              <svg className="vector-grid" viewBox="0 0 400 200" preserveAspectRatio="none" aria-hidden="true">
+                {[...Array(6)].map((_, i) => (
+                  <path key={i} d={`M0 ${30 + i * 30} Q200 ${10 + i * 15} 400 ${30 + i * 30}`} />
+                ))}
+                {[...Array(6)].map((_, i) => (
+                  <path key={`v-${i}`} d={`M${i * 80} 0 L${i * 80} 200`} />
+                ))}
+              </svg>
+              <motion.h1
+                className="text-6xl sm:text-7xl md:text-8xl lg:text-[12rem] font-black leading-[0.95] md:leading-[0.85] tracking-tightest mb-8 md:mb-16 text-pro-text break-words hero-gradient"
+                initial={{ opacity: 0, y: 40 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
+                style={{
+                  transformStyle: 'preserve-3d',
+                  rotateX: `${heroTilt.x}deg`,
+                  rotateY: `${heroTilt.y}deg`,
+                  translateZ: '24px',
+                }}
+              >
+                DEFEND<br />
+                <span className="stroke-text block md:inline-block mt-1 md:mt-0">THE.</span>
+                <span className="text-pro-blue block md:inline-block mt-1 md:mt-0">TRUTH.</span>
+              </motion.h1>
+            </div>
 
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 md:gap-16">
               <motion.p
@@ -184,6 +223,21 @@ const Home = () => {
                   </div>
                 </Link>
               </motion.div>
+            </div>
+
+            <div className="mt-8 md:mt-12 grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                { label: 'Live demo', value: '2 min', href: '/login' },
+                { label: 'Uptime', value: '99.9%', href: '#impact' },
+                { label: 'Analyses today', value: '1,240', href: '#impact' },
+                { label: 'SOC2-ready', value: 'Controls', href: '#protocol' },
+              ].map((chip) => (
+                <Link key={chip.label} to={chip.href} className="pill glass-pill group">
+                  <span className="pill-label">{chip.label}</span>
+                  <span className="pill-value">{chip.value}</span>
+                  <ArrowRight className="w-3 h-3 opacity-70 group-hover:translate-x-1 transition-transform" />
+                </Link>
+              ))}
             </div>
           </div>
         </section>
@@ -269,6 +323,23 @@ const Home = () => {
               <div className="sm:col-span-2 md:col-span-1 flex justify-center"><StatCounter value={95} suffix="%" label="Verification Accuracy" /></div>
               <div className="flex justify-center"><StatCounter value={50} suffix="K+" label="Tactical Analyses" /></div>
               <div className="flex justify-center"><StatCounter value={30} prefix="<" suffix="s" label="Response Latency" /></div>
+            </div>
+            <div className="mt-16 grid sm:grid-cols-3 gap-4 md:gap-6">
+              {['Edge Deployed', 'Human-in-loop Ready', 'API + Web App'].map((badge) => (
+                <div key={badge} className={`px-4 py-3 rounded-2xl border text-center text-xs font-black uppercase tracking-[0.25em] ${isDark ? 'border-white/10 bg-white/5 text-pro-text' : 'border-indigo-100 bg-white/70 text-slate-800'}`}>
+                  {badge}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-20 grid gap-6 md:gap-8 md:grid-cols-3">
+              {confidenceCards.map((card, i) => (
+                <div key={card.title} className={`info-card ${isDark ? 'info-card-dark' : 'info-card-light'}`}>
+                  <div className="text-[10px] font-black uppercase tracking-[0.3em] text-pro-sub mb-3">Step {i + 1}</div>
+                  <h3 className="text-xl font-black tracking-tight text-pro-text mb-3">{card.title}</h3>
+                  <p className="text-sm md:text-base text-pro-sub leading-relaxed">{card.body}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>

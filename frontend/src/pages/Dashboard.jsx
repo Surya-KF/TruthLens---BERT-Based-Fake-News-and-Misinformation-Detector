@@ -46,6 +46,10 @@ const Dashboard = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const fileInputRef = useRef(null);
   const resultsRef = useRef(null);
+  const TITLE_MIN_LENGTH = 5;
+  const TITLE_MAX_LENGTH = 140;
+  const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+  const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
   useEffect(() => {
     loadStats();
@@ -109,8 +113,10 @@ const Dashboard = () => {
   };
 
   const handleAnalyze = async () => {
-    if (!title.trim() || title.length < 5) {
-      setError('Minimum 5 characters required.');
+    const normalizedTitle = title.trim();
+    const normalizedArticle = articleText.trim();
+    if (!normalizedTitle || normalizedTitle.length < TITLE_MIN_LENGTH) {
+      setError(`Minimum ${TITLE_MIN_LENGTH} characters required.`);
       return;
     }
     setError('');
@@ -118,7 +124,7 @@ const Dashboard = () => {
     setResult(null);
     const startTime = Date.now();
     try {
-      const response = await predictionAPI.predict(title, articleText || null);
+      const response = await predictionAPI.predict(normalizedTitle, normalizedArticle || null);
       setResult(response.data);
       setAnalysisTime(((Date.now() - startTime) / 1000).toFixed(1));
       loadStats();
@@ -133,6 +139,18 @@ const Dashboard = () => {
   const handleImageSelect = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setError('Unsupported format. Upload a PNG, JPG, or WEBP image.');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      setError('Image is too large. Max size is 5 MB.');
+      e.target.value = '';
+      return;
+    }
+    setError('');
+    setResult(null);
     setSelectedImage(file);
     const reader = new FileReader();
     reader.onloadend = () => setImagePreview(reader.result);
@@ -140,7 +158,10 @@ const Dashboard = () => {
   };
 
   const handleImageAnalyze = async () => {
-    if (!selectedImage) return;
+    if (!selectedImage) {
+      setError('Load an image before running visual analysis.');
+      return;
+    }
     setLoading(true);
     setError('');
     const startTime = Date.now();
@@ -262,6 +283,15 @@ const Dashboard = () => {
 
                 <div className="max-w-4xl mx-auto w-full space-y-8 lg:space-y-12">
                   <motion.div className="pro-card p-6 md:p-10 xl:p-12 relative overflow-hidden">
+                    {error && (
+                      <div className="flex items-start gap-3 p-3 md:p-4 mb-4 rounded-2xl border border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-200" role="status" aria-live="polite">
+                        <AlertTriangle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-[0.3em]">Action Required</p>
+                          <p className="text-sm font-semibold">{error}</p>
+                        </div>
+                      </div>
+                    )}
                     {/* Input Mode Selector */}
                     <div className="flex flex-col sm:flex-row items-stretch gap-3 md:gap-4 mb-4 sm:mb-6">
                       <button 
@@ -291,61 +321,67 @@ const Dashboard = () => {
                       </button>
                     </div>
 
-                    <AnimatePresence mode="wait">
-                      {inputMode === 'text' ? (
-                        <motion.div key="text-input" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="space-y-6 sm:space-y-8">
-                          <div className="space-y-2">
-                            <label className="text-[9px] font-black text-pro-sub uppercase tracking-[0.3em] ml-1">Protocol: Headline</label>
-                            <input
-                              type="text"
-                              value={title}
-                              onChange={(e) => setTitle(e.target.value)}
-                              onKeyDown={(e) => e.key === 'Enter' && !loading && handleAnalyze()}
-                              placeholder="Enter headline..."
-                              className="input-pro !bg-pro-bg/40 border-pro-border text-sm sm:text-base font-medium shadow-inner !py-2.5 sm:!py-3.5"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-[9px] font-black text-pro-sub uppercase tracking-[0.3em] ml-1">Neural Context</label>
-                            <textarea
-                              value={articleText}
-                              onChange={(e) => setArticleText(e.target.value)}
-                              onKeyDown={(e) => e.key === 'Enter' && e.ctrlKey && !loading && handleAnalyze()}
-                              placeholder="Paste content for deep scan (Ctrl+Enter to execute)..."
-                              className="input-pro h-24 sm:h-28 resize-none !bg-pro-bg/40 border-pro-border text-sm font-medium shadow-inner !py-2.5 sm:!py-3.5"
-                            />
+                        <AnimatePresence mode="wait">
+                          {inputMode === 'text' ? (
+                            <motion.div key="text-input" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="space-y-6 sm:space-y-8">
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <label className="text-[9px] font-black text-pro-sub uppercase tracking-[0.3em] ml-1">Protocol: Headline</label>
+                                  <span className="text-[10px] font-bold text-pro-sub uppercase tracking-[0.2em]">{title.trim().length}/{TITLE_MAX_LENGTH}</span>
+                                </div>
+                                <input
+                                  type="text"
+                                  value={title}
+                                  onChange={(e) => { setTitle(e.target.value.slice(0, TITLE_MAX_LENGTH)); if (error) setError(''); }}
+                                  onKeyDown={(e) => e.key === 'Enter' && !loading && handleAnalyze()}
+                                  placeholder="Enter headline..."
+                                  maxLength={TITLE_MAX_LENGTH}
+                                  className="input-pro !bg-pro-bg/40 border-pro-border text-sm sm:text-base font-medium shadow-inner !py-2.5 sm:!py-3.5"
+                                />
+                                <p className="text-[10px] font-bold text-pro-sub uppercase tracking-[0.2em] ml-1">Press Enter to scan instantly</p>
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-[9px] font-black text-pro-sub uppercase tracking-[0.3em] ml-1">Neural Context</label>
+                                <textarea
+                                  value={articleText}
+                                  onChange={(e) => { setArticleText(e.target.value); if (error) setError(''); }}
+                                  onKeyDown={(e) => e.key === 'Enter' && e.ctrlKey && !loading && handleAnalyze()}
+                                  placeholder="Paste content for deep scan (Ctrl+Enter to execute)..."
+                                  className="input-pro h-24 sm:h-28 resize-none !bg-pro-bg/40 border-pro-border text-sm font-medium shadow-inner !py-2.5 sm:!py-3.5"
+                                />
                           </div>
                         </motion.div>
-                      ) : (
-                        <motion.div key="image-input" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-6">
-                          {!imagePreview ? (
-                            <div 
-                              onClick={() => fileInputRef.current?.click()}
-                              className="border-2 border-dashed border-pro-border rounded-[1.5rem] sm:rounded-[2.5rem] p-8 sm:p-24 text-center cursor-pointer hover:bg-pro-blue/5 transition-all group"
-                            >
-                              <Upload className="w-10 sm:w-16 h-10 sm:h-16 mx-auto text-pro-sub group-hover:text-pro-blue mb-4 sm:mb-6" />
-                              <p className="text-base sm:text-xl font-black text-pro-text mb-1 uppercase tracking-tightest italic">Load Evidence</p>
-                              <input type="file" ref={fileInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
-                            </div>
                           ) : (
-                            <div className="relative rounded-[1.5rem] sm:rounded-[2.5rem] overflow-hidden border border-pro-border bg-pro-bg/40 aspect-video flex items-center justify-center p-4 sm:p-8">
-                              <img src={imagePreview} alt="Preview" className="max-w-full max-h-full object-contain rounded-xl sm:rounded-2xl shadow-2xl" />
-                              <button onClick={() => { setSelectedImage(null); setImagePreview(null); }} className="absolute top-4 sm:top-8 right-4 sm:right-8 p-2 sm:p-4 bg-red-500/20 text-red-500 border border-red-500/30 rounded-xl sm:rounded-2xl backdrop-blur-md active:scale-95 transition-transform">
-                                <X className="w-5 h-5 sm:w-6 sm:h-6" />
-                              </button>
-                            </div>
-                          )}
+                            <motion.div key="image-input" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-6">
+                              {!imagePreview ? (
+                                <div 
+                                  onClick={() => fileInputRef.current?.click()}
+                                  className="border-2 border-dashed border-pro-border rounded-[1.5rem] sm:rounded-[2.5rem] p-8 sm:p-24 text-center cursor-pointer hover:bg-pro-blue/5 transition-all group"
+                                >
+                                  <Upload className="w-10 sm:w-16 h-10 sm:h-16 mx-auto text-pro-sub group-hover:text-pro-blue mb-4 sm:mb-6" />
+                                  <p className="text-base sm:text-xl font-black text-pro-text mb-1 uppercase tracking-tightest italic">Load Evidence</p>
+                                  <p className="text-[10px] sm:text-xs font-bold text-pro-sub uppercase tracking-[0.25em]">PNG · JPG · WEBP · Max 5 MB</p>
+                                  <input type="file" ref={fileInputRef} onChange={handleImageSelect} accept={ALLOWED_IMAGE_TYPES.join(',')} className="hidden" />
+                                </div>
+                              ) : (
+                                <div className="relative rounded-[1.5rem] sm:rounded-[2.5rem] overflow-hidden border border-pro-border bg-pro-bg/40 aspect-video flex items-center justify-center p-4 sm:p-8">
+                                  <img src={imagePreview} alt="Preview" className="max-w-full max-h-full object-contain rounded-xl sm:rounded-2xl shadow-2xl" />
+                                  <button onClick={() => { setSelectedImage(null); setImagePreview(null); setError(''); }} className="absolute top-4 sm:top-8 right-4 sm:right-8 p-2 sm:p-4 bg-red-500/20 text-red-500 border border-red-500/30 rounded-xl sm:rounded-2xl backdrop-blur-md active:scale-95 transition-transform">
+                                    <X className="w-5 h-5 sm:w-6 sm:h-6" />
+                                  </button>
+                                </div>
+                              )}
                         </motion.div>
                       )}
                     </AnimatePresence>
 
                     <div className="mt-8 sm:mt-12 pt-8 sm:pt-12 border-t border-pro-border/50">
                       <motion.button
-                        whileTap={!loading && title.length >= 5 ? { scale: 0.98 } : {}}
+                        whileTap={!loading && title.trim().length >= TITLE_MIN_LENGTH ? { scale: 0.98 } : {}}
                         onClick={inputMode === 'text' ? handleAnalyze : handleImageAnalyze}
-                        disabled={loading || (inputMode === 'text' && title.length < 5) || (inputMode === 'image' && !selectedImage)}
+                        disabled={loading || (inputMode === 'text' && title.trim().length < TITLE_MIN_LENGTH) || (inputMode === 'image' && !selectedImage)}
                         className={`w-full py-4 sm:py-6 rounded-xl sm:rounded-[1.5rem] font-black text-xs sm:text-sm uppercase tracking-[0.4em] transition-all flex items-center justify-center gap-3 sm:gap-4 ${
-                          (loading || (inputMode === 'text' && title.length < 5) || (inputMode === 'image' && !selectedImage))
+                          (loading || (inputMode === 'text' && title.trim().length < TITLE_MIN_LENGTH) || (inputMode === 'image' && !selectedImage))
                             ? 'bg-pro-surface border border-pro-border text-pro-sub cursor-not-allowed opacity-40'
                             : 'bg-pro-blue text-white shadow-2xl shadow-pro-blue/30 hover:bg-pro-blue/90 cursor-pointer active:scale-[0.99]'
                         }`}

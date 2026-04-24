@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, AlertCircle, Loader2, Shield, ArrowLeft } from 'lucide-react';
+import { Mail, Lock, AlertCircle, Loader2, Shield, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { duration, ease } from '../motion/config';
 import { useTheme } from '../context/ThemeContext';
@@ -12,6 +12,7 @@ const Login = () => {
     email: '',
     password: ''
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
@@ -21,6 +22,7 @@ const Login = () => {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (error) setError('');
   };
 
   const handleSubmit = async (e) => {
@@ -73,6 +75,8 @@ const Login = () => {
             className="bg-red-500/10 border border-red-500/20 text-red-500 p-3 rounded-xl mb-6 flex items-center gap-3 text-[10px] font-bold"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
+            role="status"
+            aria-live="polite"
           >
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <span>{error}</span>
@@ -102,6 +106,8 @@ const Login = () => {
                 value={formData.email}
                 onChange={handleChange}
                 required
+                autoComplete="email"
+                inputMode="email"
                 className="input-pro !pl-12 !py-2.5 text-sm"
                 placeholder="operative@truthlens.ai"
               />
@@ -115,15 +121,28 @@ const Login = () => {
             <div className="relative group">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-pro-sub group-focus-within:text-pro-blue transition-colors" />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
                 required
+                minLength={8}
+                autoComplete="current-password"
                 className="input-pro !pl-12 !py-2.5 text-sm"
-                placeholder="••••••••"
+                placeholder="********"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-pro-sub hover:text-pro-text transition-colors"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
+            <p className="text-[9px] text-pro-sub font-bold uppercase tracking-[0.2em] ml-1">
+              Minimum 8 characters for secure access
+            </p>
           </motion.div>
 
           <motion.div variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } } }}>
@@ -154,3 +173,6 @@ const Login = () => {
 };
 
 export default Login;
+
+
+
